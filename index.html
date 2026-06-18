@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monitoreo de Liquidaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:        #0E1318;
+    --surface:   #161D24;
+    --surface-2: #1D2630;
+    --line:      #283340;
+    --text:      #ECEFF2;
+    --text-dim:  #8B98A5;
+    --text-faint:#5C6976;
+    --amber:     #F2A93B;
+    --amber-dim: #6B4F1E;
+    --coral:     #E2574C;
+    --slate:     #5B8DBE;
+    --good:      #5FBF8F;
+    --radius:    10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    flex-wrap:wrap;gap:16px;margin-bottom:28px;
+  }
+  .title-block h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:26px;font-weight:600;margin:0 0 4px;letter-spacing:-0.01em;
+  }
+  .title-block p{margin:0;color:var(--text-dim);font-size:14px;}
+  .live-badge{
+    display:flex;align-items:center;gap:8px;
+    background:var(--surface);border:1px solid var(--line);
+    padding:8px 14px;border-radius:999px;font-size:13px;color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good);
+    box-shadow:0 0 0 0 rgba(95,191,143,.6); animation:pulse 2s infinite;}
+  .dot.err{background:var(--coral);box-shadow:none;animation:none;}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(95,191,143,.55);}
+    70%{box-shadow:0 0 0 6px rgba(95,191,143,0);}
+    100%{box-shadow:0 0 0 0 rgba(95,191,143,0);}
+  }
+  .refresh-btn{
+    background:none;border:1px solid var(--line);color:var(--text-dim);
+    border-radius:8px;padding:6px 9px;cursor:pointer;display:flex;align-items:center;
+    transition:border-color .15s, color .15s;
+  }
+  .refresh-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .refresh-btn svg{width:14px;height:14px;display:block;}
+  .refresh-btn.spin svg{animation:spin .7s linear;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- KPI cards ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .kpi{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 18px 16px;
+  }
+  .kpi .label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px;}
+  .kpi .value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;letter-spacing:-0.01em;}
+  .kpi .sub{font-size:12.5px;color:var(--text-faint);margin-top:6px;}
+  .kpi .sub.up{color:var(--good);}
+  .kpi .sub.down{color:var(--coral);}
+
+  /* ---------- panels ---------- */
+  .panel{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px 20px 18px;margin-bottom:22px;
+  }
+  .panel-head{
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+    margin-bottom:16px;
+  }
+  .panel-head h2{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;margin:0;}
+  .panel-head .hint{font-size:12px;color:var(--text-faint);margin-top:2px;}
+
+  .seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:2px;}
+  .seg button{
+    background:none;border:none;color:var(--text-dim);font-size:12.5px;padding:6px 11px;
+    border-radius:6px;cursor:pointer;font-family:inherit;
+  }
+  .seg button.active{background:var(--amber);color:#1A1306;font-weight:600;}
+
+  .seg-select{
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    font-size:12.5px;padding:7px 28px 7px 11px;border-radius:8px;cursor:pointer;
+    font-family:inherit;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235C6976' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 8px center;background-size:14px;
+  }
+  .seg-select:focus{outline:1px solid var(--amber);}
+
+  .chart-box{height:260px;position:relative;}
+
+  /* ---------- ranking ---------- */
+  .rank-row{
+    display:grid;grid-template-columns:120px 90px 1fr 130px 46px;
+    align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--line);
+  }
+  .rank-row:last-child{border-bottom:none;}
+  .rank-head{color:var(--text-faint);font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+  .rank-name{font-size:13.5px;font-weight:500;}
+  .rank-spark{height:28px;}
+  .rank-bar-track{background:var(--surface-2);border-radius:5px;height:8px;overflow:hidden;}
+  .rank-bar-fill{height:100%;background:linear-gradient(90deg,var(--amber-dim),var(--amber));border-radius:5px;}
+  .rank-amt{font-family:'JetBrains Mono',monospace;font-size:13px;text-align:right;}
+  .rank-pct{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);text-align:right;}
+
+  /* ---------- table ---------- */
+  .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;}
+  table{border-collapse:separate;border-spacing:0;font-size:12.5px;}
+  thead th{
+    position:sticky;top:0;background:var(--surface-2);color:var(--text-dim);
+    font-weight:500;text-align:right;padding:9px 12px;white-space:nowrap;border-bottom:1px solid var(--line);
+  }
+  thead th:first-child{text-align:left;position:sticky;left:0;z-index:2;background:var(--surface-2);border-right:1px solid var(--line);min-width:128px;width:128px;}
+  tbody td{
+    padding:8px 12px;text-align:right;font-family:'JetBrains Mono',monospace;
+    white-space:nowrap;border-bottom:1px solid var(--line);color:var(--text);
+  }
+  tbody td:first-child{
+    text-align:left;font-family:'Inter',sans-serif;position:sticky;left:0;
+    background:var(--surface);font-weight:500;z-index:1;border-right:1px solid var(--line);
+    min-width:128px;width:128px;overflow:hidden;text-overflow:ellipsis;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.total td{font-weight:700;background:var(--surface-2);}
+  tbody tr.total td:first-child{background:var(--surface-2);}
+  td.null, td.empty{color:var(--text-faint);}
+  td.current-col{background:rgba(242,169,59,0.08);}
+  th.current-col{color:var(--amber);}
+
+  footer{margin-top:18px;color:var(--text-faint);font-size:12px;text-align:center;}
+  footer a{color:var(--text-dim);}
+
+  .error-box{
+    background:var(--surface);border:1px solid var(--coral);border-radius:var(--radius);
+    padding:18px;color:var(--text-dim);font-size:13.5px;line-height:1.5;
+  }
+  .error-box code{background:var(--surface-2);padding:2px 6px;border-radius:4px;color:var(--amber);}
+
+  @media (max-width:840px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .rank-row{grid-template-columns:84px 60px 1fr 96px;}
+    .rank-pct{display:none;}
+  }
+  @media (max-width:520px){
+    .kpis{grid-template-columns:1fr 1fr;}
+    .kpi .value{font-size:18px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .dot{animation:none;}
+    .refresh-btn.spin svg{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Monitoreo de Liquidaciones</h1>
+      <p id="subtitle">7 sedes · liquidación quincenal desde 01/2022</p>
+    </div>
+    <div class="live-badge">
+      <span class="dot" id="liveDot"></span>
+      <span id="liveText">conectando…</span>
+      <button class="refresh-btn" id="refreshBtn" title="Actualizar ahora">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="content">
+    <div class="kpis" id="kpis"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Evolución del total</h2>
+          <div class="hint" id="chartHint">Suma de las 7 sedes por período</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select class="seg-select" id="sedeFilter">
+            <option value="all">Todas las sedes</option>
+          </select>
+          <div class="seg" id="modeSeg">
+            <button data-mode="month" class="active">Mensual</button>
+            <button data-mode="fortnight">Quincenal</button>
+          </div>
+          <div class="seg" id="rangeSeg"></div>
+        </div>
+      </div>
+      <div class="chart-box"><canvas id="mainChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Ranking por Sede</h2>
+          <div class="hint" id="rankHint">Última liquidación cargada</div>
+        </div>
+      </div>
+      <div class="rank-row rank-head">
+        <span>Sede</span><span>Tendencia</span><span>Participación</span><span style="text-align:right">Importe</span><span></span>
+      </div>
+      <div id="rankBody"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Detalle por período</h2>
+          <div class="hint" id="tableHint">Importe liquidado, por Sede y quincena</div>
+        </div>
+        <div class="seg" id="tableRangeSeg">
+          <button data-n="6">6</button>
+          <button data-n="12" class="active">12</button>
+          <button data-n="24">24</button>
+          <button data-n="all">Todas</button>
+        </div>
+      </div>
+      <div class="table-scroll"><table id="dataTable"></table></div>
+    </div>
+  </div>
+
+  <footer>
+    Fuente: Google Sheets "Monitoreo Liquidaciones" · hoja "Liquidaciones" · se actualiza solo cada 5&nbsp;min
+  </footer>
+</div>
+
+<script>
+// ======================================================
+// CONFIG — pegá aquí la URL /exec de tu Apps Script
+// ======================================================
+const API_URL = "https://script.google.com/macros/s/AKfycbxN9uoxZ_JKj3w5BghrBZSsZwGMBHyrXMpGWq2FcdtW95Ar4AMKETRcRK8N3uU-K858/exec";
+const REFRESH_MS = 5 * 60 * 1000; // 5 minutos
+
+// ======================================================
+// estado
+// ======================================================
+let RAW = null;          // respuesta cruda de la API
+let MONTHLY = null;      // agregación mensual { labels, sedes:{nombre:[...]}, total:[...] }
+let chartMode = "month"; // "month" | "fortnight"
+let chartRangeIdx = 1;   // índice sobre rangeOptions[chartMode]
+let chartSede = "all";   // "all" | nombre de una sede
+let tableN = 12;         // "6" | "12" | "24" | "all"
+let mainChart = null;
+const sparkCharts = [];
+
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const COLORS = ["#F2A93B","#5B8DBE","#5FBF8F","#E2574C","#9B7FD4","#4FB0C6","#D89A4F"];
+
+const rangeOptions = {
+  month:     [{label:"6m",n:6},{label:"12m",n:12},{label:"24m",n:24},{label:"Todo",n:null}],
+  fortnight: [{label:"12",n:12},{label:"24",n:24},{label:"52",n:52},{label:"Todo",n:null}]
+};
+
+// ======================================================
+// helpers
+// ======================================================
+function parsePeriod(str){
+  // "16/01/2022" -> Date
+  const [d,m,y] = str.split("/").map(Number);
+  return new Date(y, m-1, d);
+}
+function fmtMoney(n, withSign){
+  if(n === null || n === undefined || isNaN(n)) return "—";
+  const s = Math.round(Math.abs(n)).toLocaleString('es-AR');
+  return (withSign && n<0 ? "-$" : "$") + s;
+}
+function fmtPct(n){
+  if(n===null||n===undefined||isNaN(n)) return "—";
+  const sign = n>0?"+":"";
+  return sign + n.toFixed(1) + "%";
+}
+function timeAgo(iso){
+  const d = new Date(iso);
+  const sec = Math.round((Date.now()-d.getTime())/1000);
+  if(sec<60) return "hace " + sec + "s";
+  if(sec<3600) return "hace " + Math.round(sec/60) + " min";
+  return "hace " + Math.round(sec/3600) + " h";
+}
+// suma de un array mensual (alineado con MONTHLY.keys) restringida a un año dado
+function yearSum(monthlyArr, year){
+  let sum = null;
+  MONTHLY.keys.forEach((k,i)=>{
+    if(k.startsWith(String(year)) && monthlyArr[i]!==null && monthlyArr[i]!==undefined){
+      sum = (sum===null?0:sum) + monthlyArr[i];
+    }
+  });
+  return sum;
+}
+// "primera" (liquidación de mediados de mes) o "segunda" (fin de mes)
+function periodSlot(d){
+  return d.getDate() <= 20 ? "primera" : "segunda";
+}
+
+// ======================================================
+// fetch + procesamiento
+// ======================================================
+async function loadData(isManual){
+  const btn = document.getElementById('refreshBtn');
+  if(isManual) btn.classList.add('spin');
+  try{
+    const res = await fetch(API_URL, {cache:"no-store"});
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    RAW = json;
+    buildMonthly();
+    renderAll();
+    setLive(true, json.updated);
+  }catch(err){
+    console.error(err);
+    setLive(false, null, err.message);
+  }finally{
+    if(isManual) setTimeout(()=>btn.classList.remove('spin'), 600);
+  }
+}
+
+function buildMonthly(){
+  const dates = RAW.periods.map(parsePeriod);
+  const keyOf = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+
+  const order = [];
+  const seen = new Set();
+  dates.forEach(d=>{
+    const k = keyOf(d);
+    if(!seen.has(k)){ seen.add(k); order.push(k); }
+  });
+
+  const sedeMonthly = {};
+  RAW.sedes.forEach(s => sedeMonthly[s.nombre] = order.map(()=>null));
+  const totalMonthly = order.map(()=>null);
+
+  order.forEach((k, idx) => {
+    RAW.sedes.forEach(s=>{
+      let sum=null;
+      dates.forEach((d,i)=>{
+        if(keyOf(d)===k && s.importes[i]!==null){
+          sum = (sum===null?0:sum) + s.importes[i];
+        }
+      });
+      sedeMonthly[s.nombre][idx]=sum;
+    });
+    let tsum=null;
+    dates.forEach((d,i)=>{
+      if(keyOf(d)===k && RAW.total[i]!==null){
+        tsum = (tsum===null?0:tsum) + RAW.total[i];
+      }
+    });
+    totalMonthly[idx]=tsum;
+  });
+
+  const labels = order.map(k=>{
+    const [y,m] = k.split("-");
+    return MESES[parseInt(m,10)-1] + " " + y.slice(2);
+  });
+
+  MONTHLY = { keys:order, labels, sedes:sedeMonthly, total:totalMonthly };
+}
+
+// ======================================================
+// render
+// ======================================================
+function setLive(ok, updatedIso, errMsg){
+  const dot = document.getElementById('liveDot');
+  const txt = document.getElementById('liveText');
+  if(ok){
+    dot.classList.remove('err');
+    txt.textContent = "sincronizado " + timeAgo(updatedIso);
+  }else{
+    dot.classList.add('err');
+    txt.textContent = "error de conexión";
+    if(errMsg) document.getElementById('content').prepend(errorBox(errMsg));
+  }
+}
+
+function errorBox(msg){
+  const div = document.createElement('div');
+  div.className = "error-box";
+  div.style.marginBottom = "20px";
+  div.innerHTML = `No se pudo cargar la planilla.<br><br>
+    <code>${msg}</code><br><br>
+    Revisá que <code>API_URL</code> en el HTML tenga la URL <code>/exec</code> del Apps Script
+    publicado, y que el deploy esté con acceso "Cualquier usuario".`;
+  return div;
+}
+
+function lastFilled(arr){
+  for(let i=arr.length-1;i>=0;i--){ if(arr[i]!==null && arr[i]!==undefined) return i; }
+  return -1;
+}
+
+// misma serie {labels, data} que efectivamente se grafica en "Evolución del total",
+// según la sede y el modo (mensual/quincenal) elegidos. Único punto de cómputo
+// para que el gráfico y los indicadores nunca se desincronicen.
+function currentSeries(){
+  if(chartMode==="month"){
+    const data = chartSede==="all" ? MONTHLY.total : MONTHLY.sedes[chartSede];
+    return { labels: MONTHLY.labels, data };
+  }
+  const sedeObj = chartSede==="all" ? null : RAW.sedes.find(s=>s.nombre===chartSede);
+  const data = chartSede==="all" ? RAW.total : (sedeObj ? sedeObj.importes : RAW.total);
+  return { labels: RAW.periods, data };
+}
+
+function renderKPIs(){
+  const { labels: periods, data: total } = currentSeries();
+  const li = lastFilled(total);
+  const kpis = document.getElementById('kpis');
+  kpis.innerHTML = "";
+
+  // última liquidación (en la granularidad vigente: quincena o mes)
+  const lastVal = li>=0 ? total[li] : null;
+  let prevIdx = -1;
+  if(li>=0){
+    if(chartMode==="fortnight"){
+      // comparar contra la liquidación equivalente del mes anterior
+      // (mediados de mes vs. mediados; fin de mes vs. fin de mes)
+      const lastDate = parsePeriod(periods[li]);
+      const lastSlot = periodSlot(lastDate);
+      const lastMonthAbs = lastDate.getFullYear()*12 + lastDate.getMonth();
+      for(let i=li-1;i>=0;i--){
+        if(total[i]===null) continue;
+        const d = parsePeriod(periods[i]);
+        const monthAbs = d.getFullYear()*12 + d.getMonth();
+        if(monthAbs === lastMonthAbs - 1 && periodSlot(d)===lastSlot){ prevIdx=i; break; }
+        if(monthAbs < lastMonthAbs - 1) break; // ya pasamos el mes anterior sin encontrar match
+      }
+    }else{
+      // en vista mensual cada barra ya es un mes completo: comparamos contra
+      // el mes con datos inmediatamente anterior, sin lógica de quincena
+      for(let i=li-1;i>=0;i--){ if(total[i]!==null){ prevIdx=i; break; } }
+    }
+  }
+  const prevVal = prevIdx>=0 ? total[prevIdx] : null;
+  const variation = (lastVal!==null && prevVal) ? ((lastVal-prevVal)/prevVal*100) : null;
+
+  // mes en curso (siempre calendario-mensual; no depende del modo del gráfico)
+  const now = new Date();
+  const curKey = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+  const curIdx = MONTHLY.keys.indexOf(curKey);
+  const sedeMonthly = chartSede==="all" ? MONTHLY.total : MONTHLY.sedes[chartSede];
+  const curMonthVal = curIdx>=0 ? sedeMonthly[curIdx] : null;
+
+  // acumulado de la ventana visible en el gráfico (mismo rango: 6m/12m/24m/Todo
+  // o 12/24/52/Todo quincenas, según el modo)
+  const opt = rangeOptions[chartMode][chartRangeIdx];
+  const windowData = opt.n ? total.slice(-opt.n) : total;
+  let acumulado = null, periodosConDatos = 0;
+  windowData.forEach(v=>{ if(v!==null && v!==undefined){ acumulado=(acumulado===null?0:acumulado)+v; periodosConDatos++; } });
+  const accUnit = chartMode==="month" ? (opt.n===1?"mes":"meses") : "quincenas";
+  const accLabel = "Acumulado " + (opt.n ? opt.n + " " + accUnit : "histórico");
+
+  const sedeTag = chartSede==="all" ? "" : " · " + chartSede;
+
+  const cards = [
+    { label:"Última liquidación", value: fmtMoney(lastVal), sub: (li>=0 ? periods[li] : "sin datos") + sedeTag },
+    { label:"Variación vs. anterior", value: fmtPct(variation),
+      sub: (prevIdx>=0 ? "vs " + periods[prevIdx] : "—") + sedeTag,
+      cls: variation>0?"up":(variation<0?"down":"") },
+    { label:"Mes en curso", value: fmtMoney(curMonthVal), sub: (curMonthVal===null?"sin liquidaciones cargadas":"acumulado parcial") + sedeTag },
+    { label:accLabel, value: fmtMoney(acumulado), sub: (periodosConDatos>0 ? periodosConDatos + " períodos con datos" : "sin datos") + sedeTag },
+  ];
+
+  cards.forEach(c=>{
+    const div = document.createElement('div');
+    div.className = "kpi";
+    div.innerHTML = `<div class="label">${c.label}</div>
+      <div class="value">${c.value}</div>
+      <div class="sub ${c.cls||""}">${c.sub}</div>`;
+    kpis.appendChild(div);
+  });
+}
+
+function renderRangeSeg(){
+  const seg = document.getElementById('rangeSeg');
+  seg.innerHTML = "";
+  rangeOptions[chartMode].forEach((opt,idx)=>{
+    const b = document.createElement('button');
+    b.textContent = opt.label;
+    if(idx===chartRangeIdx) b.classList.add('active');
+    b.onclick = ()=>{ chartRangeIdx=idx; renderRangeSeg(); renderChart(); renderKPIs(); };
+    seg.appendChild(b);
+  });
+}
+
+function populateSedeFilter(){
+  const sel = document.getElementById('sedeFilter');
+  if(sel.options.length > 1) return; // ya poblado, no reiniciar selección en cada refresh
+  RAW.sedes.forEach(s=>{
+    const o = document.createElement('option');
+    o.value = s.nombre; o.textContent = s.nombre;
+    sel.appendChild(o);
+  });
+}
+
+function renderChart(){
+  const opt = rangeOptions[chartMode][chartRangeIdx];
+  let { labels, data } = currentSeries();
+  if(opt.n){
+    labels = labels.slice(-opt.n);
+    data = data.slice(-opt.n);
+  }
+
+  document.getElementById('chartHint').textContent = chartSede==="all"
+    ? "Suma de las 7 sedes por período"
+    : "Importe de " + chartSede + " por período";
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if(mainChart) mainChart.destroy();
+  mainChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{
+      data,
+      backgroundColor: data.map((v,i)=> i===data.length-1 ? '#F2A93B' : 'rgba(242,169,59,0.45)'),
+      borderRadius:3, maxBarThickness:28
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: c => fmtMoney(c.parsed.y) },
+          backgroundColor:'#1D2630', titleColor:'#ECEFF2', bodyColor:'#ECEFF2', borderColor:'#283340', borderWidth:1 } },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:'#5C6976', font:{size:11}, maxRotation:0, autoSkip:true} },
+        y:{ grid:{color:'#1D2630'}, ticks:{color:'#5C6976', font:{size:11},
+              callback:v=> '$'+ (v/1e6).toFixed(0)+'M' } }
+      }
+    }
+  });
+}
+
+function renderRanking(){
+  const body = document.getElementById('rankBody');
+  body.innerHTML = "";
+  sparkCharts.forEach(c=>c.destroy());
+  sparkCharts.length = 0;
+
+  const li = lastFilled(RAW.total);
+  const year = new Date().getFullYear();
+  const totalYear = yearSum(MONTHLY.total, year);
+
+  const rows = RAW.sedes.map(s=>{
+    const idx = lastFilled(s.importes);
+    const current = idx === li; // ¿su último dato es del período vigente?
+    return {
+      nombre:s.nombre,
+      yearTotal: yearSum(MONTHLY.sedes[s.nombre], year),
+      asOf: idx>=0 ? RAW.periods[idx] : null,
+      current,
+      serie: MONTHLY.sedes[s.nombre]
+    };
+  }).sort((a,b)=> (b.yearTotal||0)-(a.yearTotal||0));
+
+  rows.forEach((r,i)=>{
+    const pct = (totalYear && r.yearTotal!==null) ? (r.yearTotal/totalYear*100) : null;
+    const row = document.createElement('div');
+    row.className = "rank-row";
+    const sparkId = "spark"+i;
+    const nameBlock = r.current
+      ? `<span class="rank-name">${r.nombre}</span>`
+      : `<span class="rank-name">${r.nombre}<br><span style="font-size:10.5px;color:var(--text-faint);font-weight:400;">sin datos desde ${r.asOf||"—"}</span></span>`;
+    row.innerHTML = `
+      ${nameBlock}
+      <div class="rank-spark"><canvas id="${sparkId}"></canvas></div>
+      <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${pct?Math.min(pct,100):0}%;opacity:${r.current?1:0.35}"></div></div>
+      <span class="rank-amt" style="${r.current?'':'color:var(--text-faint)'}">${fmtMoney(r.yearTotal)}</span>
+      <span class="rank-pct">${pct!==null?pct.toFixed(0)+"%":"—"}</span>
+    `;
+    body.appendChild(row);
+  });
+
+  document.getElementById('rankHint').textContent = "Total acumulado " + year;
+
+  // sparklines después de insertar el DOM
+  rows.forEach((r,i)=>{
+    const serie = r.serie.slice(-12);
+    const ctx = document.getElementById("spark"+i).getContext('2d');
+    const c = new Chart(ctx, {
+      type:'line',
+      data:{ labels: serie.map((_,j)=>j), datasets:[{
+        data: serie, borderColor:'#F2A93B', borderWidth:1.5,
+        pointRadius:0, tension:0.35, fill:false, spanGaps:true
+      }]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}, tooltip:{enabled:false}},
+        scales:{ x:{display:false}, y:{display:false} },
+        elements:{ point:{radius:0} }
+      }
+    });
+    sparkCharts.push(c);
+  });
+}
+
+function renderTableSeg(){
+  const seg = document.getElementById('tableRangeSeg');
+  [...seg.children].forEach(b=>{
+    b.classList.toggle('active', b.dataset.n === String(tableN));
+  });
+}
+
+function renderTable(){
+  const n = tableN==="all" ? RAW.periods.length : parseInt(tableN,10);
+  const periods = RAW.periods.slice(-n);
+  const startIdx = RAW.periods.length - periods.length;
+
+  const table = document.getElementById('dataTable');
+  let thead = "<thead><tr><th>Sede</th>";
+  periods.forEach((p,i)=>{
+    const isCur = (startIdx+i === RAW.periods.length-1);
+    thead += `<th class="${isCur?'current-col':''}">${p}</th>`;
+  });
+  thead += "</tr></thead>";
+
+  let tbody = "<tbody>";
+  RAW.sedes.forEach(s=>{
+    tbody += `<tr><td>${s.nombre}</td>`;
+    periods.forEach((p,i)=>{
+      const v = s.importes[startIdx+i];
+      const isCur = (startIdx+i === RAW.periods.length-1);
+      const cls = (v===null?'null':'') + (isCur?' current-col':'');
+      tbody += `<td class="${cls}">${fmtMoney(v)}</td>`;
+    });
+    tbody += "</tr>";
+  });
+  tbody += `<tr class="total"><td>Total</td>`;
+  periods.forEach((p,i)=>{
+    const v = RAW.total[startIdx+i];
+    const isCur = (startIdx+i === RAW.periods.length-1);
+    tbody += `<td class="${isCur?'current-col':''}">${fmtMoney(v)}</td>`;
+  });
+  tbody += "</tr></tbody>";
+
+  table.innerHTML = thead + tbody;
+  fixStickyOverlap(table.parentElement, table);
+}
+
+// Mantiene el período más reciente siempre 100% visible (scroll al máximo) y,
+// si eso deja una columna anterior parcialmente tapada por la columna fija "Sede",
+// agranda esa columna fija para tapar esa columna entera en vez de cortarla a la mitad.
+function fixStickyOverlap(scrollEl, table){
+  const stickyCells = [...table.querySelectorAll('thead th:first-child, tbody td:first-child')];
+  const BASE_WIDTH = 128;
+  const setW = (w) => stickyCells.forEach(el => { el.style.width = w+"px"; el.style.minWidth = w+"px"; });
+
+  let w = BASE_WIDTH;
+  setW(w);
+
+  // Agrandar la columna fija cambia el ancho total de la tabla, lo que mueve el
+  // punto de scroll máximo. Por eso se itera hasta que no quede ninguna columna
+  // tapada a medias (converge en pocas vueltas).
+  for(let iter=0; iter<6; iter++){
+    scrollEl.scrollLeft = scrollEl.scrollWidth; // el navegador lo recorta solo al máximo real
+    const ths = [...table.querySelectorAll('thead th')];
+    if(ths.length < 2) break;
+
+    const stickyRect = ths[0].getBoundingClientRect();
+    let needed = w;
+    for(let i=1;i<ths.length;i++){
+      const r = ths[i].getBoundingClientRect();
+      if(r.left < stickyRect.right - 1){ // esta columna queda parcialmente tapada
+        needed = Math.max(needed, Math.ceil(r.right - stickyRect.left));
+      }
+    }
+    if(needed <= w) break; // ya no hay ninguna columna a medio tapar
+    w = needed;
+    setW(w);
+  }
+}
+
+function renderAll(){
+  populateSedeFilter();
+  renderKPIs();
+  renderRangeSeg();
+  renderChart();
+  renderRanking();
+  renderTableSeg();
+  renderTable();
+}
+
+// ======================================================
+// listeners
+// ======================================================
+document.getElementById('modeSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  chartMode = b.dataset.mode; chartRangeIdx = 1;
+  [...document.getElementById('modeSeg').children].forEach(x=>x.classList.toggle('active', x===b));
+  renderRangeSeg(); renderChart(); renderKPIs();
+});
+document.getElementById('tableRangeSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  tableN = b.dataset.n;
+  renderTableSeg(); renderTable();
+});
+document.getElementById('sedeFilter').addEventListener('change', e=>{
+  chartSede = e.target.value;
+  renderChart();
+  renderKPIs();
+});
+document.getElementById('refreshBtn').addEventListener('click', ()=>loadData(true));
+let resizeT;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeT);
+  resizeT = setTimeout(()=>{ if(RAW) renderTable(); }, 200);
+});
+
+// ======================================================
+// init
+// ======================================================
+loadData(false);
+setInterval(()=>loadData(false), REFRESH_MS);
+setInterval(()=>{ if(RAW) setLive(true, RAW.updated); }, 30000);
+</script>
+</body>
+</html>
