@@ -710,84 +710,83 @@ function updatePeriodos(){
 
   const allPers = Object.keys(pp).map(per => ({
     per,
-    total: meses.reduce((a,m) => a + SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0), 0),
-    byMes: Object.fromEntries(meses.map(m => [m, SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0)])),
-  })).filter(x => Math.abs(x.total) > 100)
-     .sort((a,b) => period_num(a.per) - period_num(b.per));
+    byMes: Object.fromEntries(
+      meses.map(m => [m, SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0)])
+    ),
+  })).sort((a,b) => period_num(a.per) - period_num(b.per));
 
-  // Denominador correcto por mes: suma real de todos los períodos de ese mes
-  // (coincide con bruto pero evita diferencias de redondeo con ajustes negativos)
-  const mesDenominator = {};
-  meses.forEach(m => {
-    mesDenominator[m] = Object.keys(pp).reduce((a, per) =>
-      a + SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0), 0) || 1;
-  });
+  // Denominador por mes = suma positiva de todos los períodos de ese mes
+  // Usamos DATA.by_mes_total[m].bruto que es el valor exacto parseado desde los XLS
+  const denom = {};
+  meses.forEach(m => { denom[m] = DATA.by_mes_total[m]?.bruto || 1; });
 
-  const stickyTh = 'position:sticky;left:0;background:var(--bg2);z-index:2;white-space:nowrap';
-  const stickyTd = 'position:sticky;left:0;background:var(--bg2);z-index:1;white-space:nowrap';
-  const stickyTdBold = 'position:sticky;left:0;background:var(--bg3);z-index:1;font-weight:700;color:var(--gold)';
-  const sepBorder = 'border-left:1px solid var(--border2)';
+  // Filtramos períodos que tienen algún valor en los meses seleccionados
+  const visiblePers = allPers.filter(x =>
+    meses.some(m => Math.abs(x.byMes[m]) > 0.005)
+  );
+
+  const stickyTh     = 'position:sticky;left:0;background:var(--bg2);z-index:2;white-space:nowrap;min-width:120px';
+  const stickyTd     = 'position:sticky;left:0;background:var(--bg2);z-index:1;white-space:nowrap;font-weight:500';
+  const stickyTdTot  = 'position:sticky;left:0;background:var(--bg3);z-index:1;font-weight:700;color:var(--gold)';
+  const sep          = 'border-left:1px solid var(--border2)';
 
   if (vista === 'total') {
-    let th = `<thead><tr>
-      <th style="${stickyTh};min-width:120px">Período prest.</th>`;
+    // ── encabezado ──────────────────────────────────────────
+    let th = `<thead><tr><th style="${stickyTh}">Período prest.</th>`;
     meses.forEach(m => {
-      th += `<th colspan="2" style="text-align:center;${sepBorder};white-space:nowrap">${m}</th>`;
+      th += `<th colspan="2" style="text-align:center;${sep};white-space:nowrap">${m}</th>`;
     });
     th += `</tr><tr><th style="${stickyTh}"></th>`;
-    meses.forEach(() => {
-      th += `<th style="${sepBorder}">Monto</th><th>% liq.</th>`;
-    });
+    meses.forEach(() => { th += `<th style="${sep}">Monto</th><th>% bruto</th>`; });
     th += '</tr></thead>';
 
+    // ── filas ────────────────────────────────────────────────
     let tb = '<tbody>';
-    allPers.forEach(x => {
-      tb += `<tr><td style="${stickyTd};font-weight:500">${x.per}</td>`;
+    visiblePers.forEach(x => {
+      tb += `<tr><td style="${stickyTd}">${x.per}</td>`;
       meses.forEach(m => {
-        const v = x.byMes[m] || 0;
-        const liqMes = mesDenominator[m] || DATA.by_mes_total[m]?.bruto || 1;
-        tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
-        tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
+        const v   = x.byMes[m] || 0;
+        const pct = v !== 0 ? (v / denom[m] * 100).toFixed(2) + '%' : '—';
+        tb += `<td class="${v<0?'neg':''}" style="${sep};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
+        tb += `<td class="muted" style="white-space:nowrap">${pct}</td>`;
       });
       tb += '</tr>';
     });
-    // Totals row
-    tb += `<tr class="total-row"><td style="${stickyTdBold}">TOTAL</td>`;
+
+    // ── fila TOTAL ───────────────────────────────────────────
+    tb += `<tr class="total-row"><td style="${stickyTdTot}">TOTAL</td>`;
     meses.forEach(m => {
-      const tot = allPers.reduce((a,x) => a + (x.byMes[m]||0), 0);
-      const liqMes = mesDenominator[m] || DATA.by_mes_total[m]?.bruto || 1;
-      tb += `<td class="gold" style="${sepBorder};white-space:nowrap">${fmtN(tot)}</td>`;
-      tb += `<td class="muted" style="white-space:nowrap">${(tot/liqMes*100).toFixed(2)}%</td>`;
+      // El total de la columna es exactamente el bruto del mes
+      const tot = denom[m];
+      tb += `<td class="gold" style="${sep};white-space:nowrap">${fmtN(tot)}</td>`;
+      tb += `<td class="muted" style="white-space:nowrap">100.00%</td>`;
     });
     tb += '</tr></tbody>';
 
     document.getElementById('perTable').innerHTML = th + tb;
 
   } else {
-    // Por sede
-    let th = `<thead><tr>
-      <th style="${stickyTh};min-width:180px">Período / Sede</th>`;
+    // ── vista por sede ───────────────────────────────────────
+    let th = `<thead><tr><th style="${stickyTh};min-width:180px">Período / Sede</th>`;
     meses.forEach(m => {
-      th += `<th colspan="2" style="text-align:center;${sepBorder};white-space:nowrap">${m}</th>`;
+      th += `<th colspan="2" style="text-align:center;${sep};white-space:nowrap">${m}</th>`;
     });
     th += `</tr><tr><th style="${stickyTh}"></th>`;
-    meses.forEach(() => {
-      th += `<th style="${sepBorder}">Monto</th><th>% liq.</th>`;
-    });
+    meses.forEach(() => { th += `<th style="${sep}">Monto</th><th>% bruto</th>`; });
     th += '</tr></thead>';
 
     let tb = '<tbody>';
-    allPers.forEach(x => {
+    visiblePers.forEach(x => {
       tb += `<tr style="background:var(--bg3)">
         <td colspan="${1 + meses.length*2}" style="font-weight:600;color:var(--gold);padding:6px 9px;white-space:nowrap">${x.per}</td></tr>`;
       SEDES.forEach(s => {
         if (!meses.some(m => Math.abs(pp[x.per][m]?.[s]||0) > 0)) return;
         tb += `<tr><td style="${stickyTd};padding-left:20px;color:var(--text2)">${s}</td>`;
         meses.forEach(m => {
-          const v = pp[x.per][m]?.[s] || 0;
-          const liqMes = mesDenominator[m] || DATA.by_mes_total[m]?.bruto || 1;
-          tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
-          tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
+          const v   = pp[x.per][m]?.[s] || 0;
+          const pct = v !== 0 ? (v / denom[m] * 100).toFixed(2) + '%' : '—';
+          tb += `<td class="${v<0?'neg':''}" style="${sep};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
+          tb += `<td class="muted" style="white-space:nowrap">${pct}</td>`;
         });
         tb += '</tr>';
       });
