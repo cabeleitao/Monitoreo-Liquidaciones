@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle de Liquidaciones — CB 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+:root{
+  --bg:#111318;--bg2:#1a1d27;--bg3:#22263a;--bg4:#2a2e40;
+  --border:#2e3348;--border2:#3a3f58;
+  --gold:#C9A84C;--gold2:#E8C96A;
+  --text:#e8eaf0;--text2:#9aa0b8;--text3:#5a6080;
+  --green:#2DD4A0;--red:#FF6B6B;--blue:#5B8FE8;--purple:#A78BFA;
+  --r:8px;--r2:12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh}
+
+/* Topbar */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:16px 28px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.topbar-title{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.topbar-sub{font-size:12px;color:var(--text2);margin-top:3px}
+.sync-badge{display:flex;align-items:center;gap:6px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:99px;padding:5px 12px;font-size:12px;color:var(--text2)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+
+/* Global selectors */
+.global-sel-bar{padding:14px 28px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sel{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);
+  color:var(--text);font-size:13px;padding:7px 28px 7px 12px;height:34px;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6080'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center}
+.sel:focus{border-color:var(--gold);outline:none}
+.sel-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.sel-group{display:flex;align-items:center;gap:8px}
+
+/* KPIs */
+.kpi-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;padding:14px 28px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold)}
+.kpi-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.kpi-value{font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px}
+.kpi-chg{font-size:11px;font-weight:600;margin-top:4px}
+.kpi-chg.up{color:var(--green)}.kpi-chg.down{color:var(--red)}
+
+/* Tabs */
+.tabs-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 28px;display:flex;overflow-x:auto}
+.tab-btn{font-size:13px;font-weight:500;color:var(--text2);background:none;border:none;
+  padding:13px 18px;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;cursor:pointer}
+.tab-btn:hover{color:var(--text)}.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* Content */
+.content{padding:20px 28px;flex:1}
+.tab-panel{display:none}.tab-panel.active{display:block}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:2px}
+.card-sub{font-size:11px;color:var(--text2);margin-bottom:12px}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+
+/* Layouts */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-6040{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+@media(max-width:900px){.grid2,.grid-6040{grid-template-columns:1fr}}
+
+/* Selectors inside tabs */
+.selectors{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text2)}
+.li{display:flex;align-items:center;gap:5px}
+.ld{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+/* Alert band */
+.alert-band{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.3);
+  border-radius:var(--r);padding:9px 14px;margin-bottom:12px;font-size:12px;color:var(--red);display:none}
+.alert-band.show{display:block}
+
+/* ── COMPACT TABLE ────────────────────────────────────── */
+.ctable{width:100%;border-collapse:collapse;font-size:12px}
+.ctable th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text2);padding:6px 8px;text-align:right;border-bottom:1px solid var(--border)}
+.ctable th:first-child{text-align:left}
+.ctable td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(46,51,72,.6);font-size:11px}
+.ctable td:first-child{text-align:left;font-size:12px;color:var(--text)}
+.ctable tr:hover td{background:rgba(42,46,64,.5)}
+.ctable .total-row td{font-weight:700;background:var(--bg3);color:var(--gold);border-top:1px solid var(--border);padding:7px 8px}
+.neg{color:var(--red)!important}.pos{color:var(--green)!important}
+.gold{color:var(--gold)!important}.muted{color:var(--text2)!important}
+
+/* ── WHY PANEL ────────────────────────────────────────── */
+.why-panel{display:flex;flex-direction:column;gap:8px}
+.why-sede{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px}
+.why-sede-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.why-sede-name{font-size:12px;font-weight:600;color:var(--text)}
+.why-sede-pct{font-size:14px;font-weight:700}
+.why-bars{display:flex;flex-direction:column;gap:3px}
+.why-row{display:flex;align-items:center;gap:6px;font-size:10px}
+.why-label{color:var(--text2);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.why-bar-wrap{flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.why-bar-fill{height:100%;border-radius:3px}
+.why-pct-val{color:var(--text2);width:38px;text-align:right;flex-shrink:0}
+.why-absent{font-size:10px;color:var(--text3);font-style:italic;margin-top:4px}
+
+/* Other tabs tables */
+.dtable{width:100%;border-collapse:collapse;font-size:12px}
+.dtable th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--text2);padding:7px 9px;text-align:right;border-bottom:1px solid var(--border)}
+.dtable th:first-child{text-align:left}
+.dtable td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--border);font-size:12px}
+.dtable td:first-child{text-align:left}
+.dtable tr:hover td{background:var(--bg3)}
+.dtable .total-row td{font-weight:700;background:var(--bg3);color:var(--gold)}
+.pareto-bar{height:4px;background:var(--bg4);border-radius:2px;margin-top:3px;overflow:hidden}
+.pareto-fill{height:100%;background:var(--gold);border-radius:2px}
+
+/* Chart wrap */
+.cw{position:relative;width:100%}
+.footer{text-align:center;font-size:11px;color:var(--text3);padding:14px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="topbar">
+  <div><div class="topbar-title">Detalle de Liquidaciones</div>
+       <div class="topbar-sub">Centro de Bioquímicos Mar del Plata · 6 sedes · 2026</div></div>
+  <div class="sync-badge"><span class="sync-dot"></span>Datos al 31/07/2026</div>
+</div>
+
+<div class="global-sel-bar">
+  <div class="sel-group"><span class="sel-label">Año</span>
+    <select class="sel" id="globalYear"><option value="2026">2026</option></select></div>
+  <div class="sel-group"><span class="sel-label">Mes</span>
+    <select class="sel" id="globalMes" onchange="updateAll()">
+      <option value="Julio">Julio</option><option value="Junio">Junio</option>
+      <option value="Mayo">Mayo</option><option value="Abril">Abril</option>
+    </select></div>
+</div>
+<div class="kpi-bar" id="kpiBar"></div>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab('resumen')">Resumen</button>
+  <button class="tab-btn" onclick="showTab('sedes')">Sedes</button>
+  <button class="tab-btn" onclick="showTab('ooss')">Obras Sociales</button>
+  
+  <button class="tab-btn" onclick="showTab('periodos')">Períodos Liquidados</button>
+</div>
+
+<div class="content">
+
+<!-- ── RESUMEN ──────────────────────────────────────────── -->
+<div class="tab-panel active" id="panel-resumen">
+  <div id="alertBandResumen" class="alert-band"></div>
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Evolución: Bruto vs Liquidado · % Descuento</div>
+           <div class="card-sub">Monitorear que el % de descuento no tenga sobresaltos entre meses</div></div>
+      <div class="legend">
+        <span class="li"><span class="ld" style="background:#C9A84C"></span>Facturado Bruto</span>
+        <span class="li"><span class="ld" style="background:#2DD4A0"></span>Liquidado</span>
+        <span class="li"><span class="ld" style="background:#FF6B6B;border-radius:50%"></span>% Desc. (eje der.)</span>
+      </div>
+    </div>
+    <div class="cw" style="height:290px"><canvas id="chartEvol"></canvas></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Facturado Bruto por sede</div>
+             <div class="card-sub" id="resumenSedeSub">Participación % de cada sede</div></div>
+      </div>
+      <div class="cw" style="height:230px"><canvas id="chartResumenSede"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Descuentos — % sobre Bruto</div>
+             <div class="card-sub">Der. Adm. neteado de devoluciones APB</div></div>
+      </div>
+      <div class="cw" style="height:230px"><canvas id="chartResumenDesc"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SEDES ────────────────────────────────────────────── -->
+<div class="tab-panel" id="panel-sedes">
+  <div class="selectors">
+    <div class="sel-group"><span class="sel-label">Sede</span>
+      <select class="sel" id="sedesSede" onchange="updateSedes()">
+        <option value="all">Todas las sedes</option>
+      </select></div>
+    <div class="sel-group"><span class="sel-label">Período</span>
+      <select class="sel" id="sedesMes" onchange="updateSedes()">
+        <option value="all">Todos los meses</option>
+      </select></div>
+  </div>
+
+  <!-- Gráfico principal evolución por sede -->
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title" id="sedesEvolTitle">Bruto vs Liquidado · % Descuento por sede</div>
+           <div class="card-sub" id="sedesEvolSub">Seleccioná una sede para ver su evolución mensual</div></div>
+      <div class="legend">
+        <span class="li"><span class="ld" style="background:#C9A84C"></span>Facturado Bruto</span>
+        <span class="li"><span class="ld" style="background:#2DD4A0"></span>Liquidado</span>
+        <span class="li"><span class="ld" style="background:#FF6B6B;border-radius:50%"></span>% Desc.</span>
+      </div>
+    </div>
+    <div class="cw" style="height:270px"><canvas id="chartSedesEvol"></canvas></div>
+  </div>
+
+  <!-- Tabla compacta + panel WHY -->
+  <div class="grid-6040">
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Detalle numérico</div>
+      <div style="overflow-x:auto"><table class="ctable" id="sedesTable"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-header" style="margin-bottom:8px">
+        <div><div class="card-title">¿Por qué varía el % de descuento entre sedes?</div>
+             <div class="card-sub" id="whySubtitle">Composición de descuentos — mes seleccionado</div></div>
+      </div>
+      <div class="why-panel" id="whyPanel"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── OOSS ─────────────────────────────────────────────── -->
+<div class="tab-panel" id="panel-ooss">
+  <div class="selectors">
+    <div class="sel-group"><span class="sel-label">Sede</span>
+      <select class="sel" id="oossSede" onchange="updateOoss()">
+        <option value="all">Todas las sedes</option>
+      </select></div>
+    <div class="sel-group"><span class="sel-label">Mes</span>
+      <select class="sel" id="oossMes" onchange="updateOoss()">
+        <option value="all">Todos los meses</option>
+      </select></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div><div class="card-title">Obras Sociales — Pareto 80%</div>
+           <div class="card-sub" id="oossParetSub"></div></div>
+    </div>
+    <div class="cw" id="oossChartWrap"><canvas id="chartOoss"></canvas></div>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <div class="card-title" style="margin-bottom:12px">Ranking completo</div>
+    <table class="dtable" id="oossTable"></table>
+  </div>
+</div>
+
+<!-- ── PERIODOS ─────────────────────────────────────────── -->
+<div class="tab-panel" id="panel-periodos">
+  <div class="selectors">
+    <div class="sel-group"><span class="sel-label">Mes liq.</span>
+      <select class="sel" id="perMes" onchange="updatePeriodos()">
+        <option value="all">Todos</option>
+      </select></div>
+    <div class="sel-group"><span class="sel-label">Vista</span>
+      <select class="sel" id="perVista" onchange="updatePeriodos()">
+        <option value="total">Total</option>
+        <option value="sede">Por sede</option>
+      </select></div>
+  </div>
+  <div class="card" style="overflow-x:auto">
+      <div class="card-title" style="margin-bottom:12px">Detalle de períodos</div>
+    <table class="dtable" id="perTable"></table>
+  </div>
+</div>
+
+</div><!-- /content -->
+<div class="footer">Centro de Bioquímicos Mar del Plata · Datos al 31/07/2026</div>
+</div>
+
+<script>
+Chart.register(ChartDataLabels);
+const DATA  = {"meses": ["Abril", "Mayo", "Junio", "Julio"], "sedes": ["Rivadavia", "Otamendi", "Magallanes", "Sarmiento", "Constitución", "Luro"], "by_mes_total": {"Abril": {"bruto": 469602465.64, "desc": -53844204.25, "liq": 415758261.39}, "Mayo": {"bruto": 502703192.63, "desc": -59442477.54, "liq": 443260715.09}, "Junio": {"bruto": 507924922.92, "desc": -62541730.85, "liq": 445383192.07}, "Julio": {"bruto": 528499979.33, "desc": -68961981.03, "liq": 459537998.3}}, "by_mes_sede": {"Abril": {"Rivadavia": {"bruto": 267599627.18, "desc": -34033144.64, "liq": 233566482.54}, "Otamendi": {"bruto": 10111985.79, "desc": -1194189.82, "liq": 8917795.97}, "Magallanes": {"bruto": 48011253.46, "desc": -3558820.41, "liq": 44452433.05}, "Sarmiento": {"bruto": 61066161.47, "desc": -4362367.75, "liq": 56703793.72}, "Constitución": {"bruto": 61012756.97, "desc": -7813580.78, "liq": 53199176.19}, "Luro": {"bruto": 21800680.77, "desc": -2882100.85, "liq": 18918579.92}}, "Mayo": {"Rivadavia": {"bruto": 285228869.34, "desc": -38049998.63, "liq": 247178870.71}, "Otamendi": {"bruto": 12510814.24, "desc": -1572214.53, "liq": 10938599.71}, "Magallanes": {"bruto": 48886061.54, "desc": -3638207.38, "liq": 45247854.16}, "Sarmiento": {"bruto": 63478068.97, "desc": -4475313.05, "liq": 59002755.92}, "Constitución": {"bruto": 69287631.58, "desc": -8636485.99, "liq": 60651145.59}, "Luro": {"bruto": 23311746.96, "desc": -3070257.96, "liq": 20241489.0}}, "Junio": {"Rivadavia": {"bruto": 289707503.87, "desc": -42274714.27, "liq": 247432789.6}, "Otamendi": {"bruto": 12758350.06, "desc": -1684802.51, "liq": 11073547.55}, "Magallanes": {"bruto": 49604454.16, "desc": -3698408.0, "liq": 45906046.16}, "Sarmiento": {"bruto": 65503171.48, "desc": -4691199.46, "liq": 60811972.02}, "Constitución": {"bruto": 67142382.44, "desc": -7027261.4, "liq": 60115121.04}, "Luro": {"bruto": 23209060.91, "desc": -3165345.21, "liq": 20043715.7}}, "Julio": {"Rivadavia": {"bruto": 294806819.96, "desc": -46715107.98, "liq": 248091711.98}, "Otamendi": {"bruto": 13656206.41, "desc": -1782076.47, "liq": 11874129.94}, "Magallanes": {"bruto": 54262317.46, "desc": -4084431.77, "liq": 50177885.69}, "Sarmiento": {"bruto": 67220851.21, "desc": -4886836.12, "liq": 62334015.09}, "Constitución": {"bruto": 78658458.23, "desc": -7911622.69, "liq": 70746835.54}, "Luro": {"bruto": 19895326.06, "desc": -3581906.0, "liq": 16313420.06}}}, "gastos_data": {"Der. Administrativo (neto devol.)": {"Abril": -19449681.49, "Mayo": -20706884.33, "Junio": -20569726.76, "Julio": -21630535.35, "pct": {"Abril": -4.1417, "Mayo": -4.1191, "Junio": -4.0498, "Julio": -4.0928}}, "Facturas EMSA": {"Abril": -7029021.58, "Mayo": -9194617.0, "Junio": -12356380.59, "Julio": -17053572.89, "pct": {"Abril": -1.4968, "Mayo": -1.829, "Junio": -2.4327, "Julio": -3.2268}}, "Retención Imp. Ganancias": {"Abril": -9178075.3, "Mayo": -9796215.43, "Junio": -9896392.93, "Julio": -10314638.18, "pct": {"Abril": -1.9544, "Mayo": -1.9487, "Junio": -1.9484, "Julio": -1.9517}}, "Desc. Importe Deudor": {"Abril": -9105554.0, "Mayo": -9573962.84, "Junio": -9239568.8, "Julio": -8810018.41, "pct": {"Abril": -1.939, "Mayo": -1.9045, "Junio": -1.8191, "Julio": -1.667}}, "Porc. Admin. FABA": {"Abril": -3247146.38, "Mayo": -3497222.61, "Junio": -3907928.95, "Julio": -3798038.79, "pct": {"Abril": -0.6915, "Mayo": -0.6957, "Junio": -0.7694, "Julio": -0.7186}}, "Porc. Admin. FABA Salud": {"Abril": -2088409.68, "Mayo": -2258948.66, "Junio": -2515639.75, "Julio": -2452049.24, "pct": {"Abril": -0.4447, "Mayo": -0.4494, "Junio": -0.4953, "Julio": -0.464}}, "Cuota Swiss Medical": {"Abril": -2100035.8, "Mayo": -2563523.38, "Junio": -2380986.17, "Julio": -2384455.76, "pct": {"Abril": -0.4472, "Mayo": -0.5099, "Junio": -0.4688, "Julio": -0.4512}}, "Ingresos Brutos 1.50%": {"Abril": -1366987.29, "Mayo": -1538807.45, "Junio": -1506811.91, "Julio": -1643667.59, "pct": {"Abril": -0.2911, "Mayo": -0.3061, "Junio": -0.2967, "Julio": -0.311}}, "Otros descuentos": {"Abril": -163186.73, "Mayo": -196189.84, "Junio": -52188.99, "Julio": -726301.82, "pct": {"Abril": -0.0347, "Mayo": -0.039, "Junio": -0.0103, "Julio": -0.1374}}, "Seguro Mala Praxis": {"Abril": -116106.0, "Mayo": -116106.0, "Junio": -116106.0, "Julio": -148703.0, "pct": {"Abril": -0.0247, "Mayo": -0.0231, "Junio": -0.0229, "Julio": -0.0281}}}, "ooss_list": [{"nombre": "PAMI - UGL XI", "num": 725, "Abril": 96063398.25, "Abril_sedes": {"Rivadavia": 41586365.89, "Otamendi": 3425786.21, "Magallanes": 18678387.18, "Sarmiento": 11276586.65, "Constitución": 11885841.48, "Luro": 9210430.84}, "Mayo": 87595929.43, "Mayo_sedes": {"Rivadavia": 37698334.13, "Otamendi": 3018219.04, "Magallanes": 18057429.35, "Sarmiento": 9733382.07, "Constitución": 10858034.9, "Luro": 8230529.94}, "Junio": 109774468.58, "Junio_sedes": {"Rivadavia": 47272608.86, "Otamendi": 3510870.5, "Magallanes": 21728767.87, "Sarmiento": 13980455.84, "Constitución": 14240732.9, "Luro": 9041032.61}, "Julio": 96932056.37, "Julio_sedes": {"Rivadavia": 41945001.79, "Otamendi": 3317599.37, "Magallanes": 20746348.47, "Sarmiento": 10648620.97, "Constitución": 11253761.62, "Luro": 9020724.15}, "total": 390365852.63}, {"nombre": "OSDE-MAR DEL PLATA-INTERIOR-ACREDIT", "num": 960, "Abril": 85183420.46, "Abril_sedes": {"Rivadavia": 80022718.65, "Otamendi": 1096985.33, "Magallanes": 857342.96, "Sarmiento": 1304770.76, "Constitución": 1165869.72, "Luro": 735733.04}, "Mayo": 88586183.17, "Mayo_sedes": {"Rivadavia": 83454816.03, "Otamendi": 1252102.87, "Magallanes": 569646.68, "Sarmiento": 1477425.1, "Constitución": 501963.18, "Luro": 1330229.31}, "Junio": 90687628.45, "Junio_sedes": {"Rivadavia": 83469093.57, "Otamendi": 2962400.28, "Magallanes": 603718.49, "Sarmiento": 1466315.48, "Constitución": 1257415.65, "Luro": 928684.98}, "Julio": 76267868.74, "Julio_sedes": {"Rivadavia": 71329440.15, "Otamendi": 1707581.98, "Magallanes": 686496.81, "Sarmiento": 696135.81, "Constitución": 802683.1, "Luro": 1045530.89}, "total": 340725100.82}, {"nombre": "MEDIFE-PLATA,ORO,PLATINUM,INT.BRON.", "num": 841, "Abril": 36387712.55, "Abril_sedes": {"Rivadavia": 12428037.04, "Otamendi": 495777.87, "Magallanes": 4066339.26, "Sarmiento": 6712583.94, "Constitución": 10283962.34, "Luro": 2401012.1}, "Mayo": 34909000.73, "Mayo_sedes": {"Rivadavia": 14386931.14, "Otamendi": 664723.82, "Magallanes": 2303434.45, "Sarmiento": 8963069.83, "Constitución": 6894973.67, "Luro": 1695867.82}, "Junio": 40113751.15, "Junio_sedes": {"Rivadavia": 14210458.89, "Otamendi": 323320.7, "Magallanes": 5413251.1, "Sarmiento": 8798099.82, "Constitución": 9219648.4, "Luro": 2148972.24}, "Julio": 43770120.13, "Julio_sedes": {"Rivadavia": 16117691.11, "Otamendi": 623659.14, "Magallanes": 3822696.1, "Sarmiento": 8486061.01, "Constitución": 13934419.55, "Luro": 785593.22}, "total": 155180584.56}, {"nombre": "SANCOR - OBLIGATORIO", "num": 282, "Abril": 14511365.72, "Abril_sedes": {"Rivadavia": 7511685.28, "Otamendi": 0, "Magallanes": 2156271.89, "Sarmiento": 3662225.42, "Constitución": 1032807.1, "Luro": 148376.03}, "Mayo": 17852694.06, "Mayo_sedes": {"Rivadavia": 6903542.05, "Otamendi": 45484.46, "Magallanes": 2931158.46, "Sarmiento": 2957792.33, "Constitución": 4221880.18, "Luro": 792836.58}, "Junio": 24609764.08, "Junio_sedes": {"Rivadavia": 10342262.01, "Otamendi": 208707.0, "Magallanes": 2347857.66, "Sarmiento": 5370283.21, "Constitución": 5308787.14, "Luro": 1031867.06}, "Julio": 20670453.63, "Julio_sedes": {"Rivadavia": 7460908.03, "Otamendi": 161086.0, "Magallanes": 3526368.5, "Sarmiento": 4254760.1, "Constitución": 4388950.0, "Luro": 878381.0}, "total": 77644277.49}, {"nombre": "SWISS MEDICAL - AMBULATORIO", "num": 576, "Abril": 14991162.7, "Abril_sedes": {"Rivadavia": 6750977.51, "Otamendi": 123801.14, "Magallanes": 964643.19, "Sarmiento": 3881174.49, "Constitución": 2969707.14, "Luro": 300859.23}, "Mayo": 17290525.78, "Mayo_sedes": {"Rivadavia": 6463749.23, "Otamendi": 0, "Magallanes": 2006590.44, "Sarmiento": 3075707.99, "Constitución": 5332037.03, "Luro": 412441.09}, "Junio": 18079434.41, "Junio_sedes": {"Rivadavia": 8149617.3, "Otamendi": 0, "Magallanes": 1047757.46, "Sarmiento": 3380055.98, "Constitución": 4802885.33, "Luro": 699118.34}, "Julio": 23977686.37, "Julio_sedes": {"Rivadavia": 10632266.95, "Otamendi": 0, "Magallanes": 1726728.89, "Sarmiento": 5705416.97, "Constitución": 5547201.78, "Luro": 366071.78}, "total": 74338809.26}, {"nombre": "IOMA-AMBULATORIO-OBLIGATORIO", "num": 554, "Abril": 17259564.97, "Abril_sedes": {"Rivadavia": 14875000.0, "Otamendi": 915231.0, "Magallanes": 172017.0, "Sarmiento": 275375.99, "Constitución": 241946.99, "Luro": 779993.99}, "Mayo": 19066338.98, "Mayo_sedes": {"Rivadavia": 15812050.0, "Otamendi": 1209824.0, "Magallanes": 239048.99, "Sarmiento": 316548.0, "Constitución": 523833.99, "Luro": 965034.0}, "Junio": 18185311.1, "Junio_sedes": {"Rivadavia": 14728599.26, "Otamendi": 1630619.92, "Magallanes": 322743.99, "Sarmiento": 248591.99, "Constitución": 361151.98, "Luro": 893603.96}, "Julio": 17440860.9, "Julio_sedes": {"Rivadavia": 14657040.74, "Otamendi": 1054160.07, "Magallanes": 163212.01, "Sarmiento": 226608.01, "Constitución": 286752.02, "Luro": 1053088.05}, "total": 71952075.95}, {"nombre": "MEDICUS (AZUL,BLANCA,FAMILY, MC)", "num": 820, "Abril": 17442741.24, "Abril_sedes": {"Rivadavia": 6409212.91, "Otamendi": 187192.02, "Magallanes": 1224290.34, "Sarmiento": 5309702.08, "Constitución": 3990301.06, "Luro": 322042.83}, "Mayo": 35386382.19, "Mayo_sedes": {"Rivadavia": 12560086.7, "Otamendi": 680792.54, "Magallanes": 3485450.97, "Sarmiento": 11584423.24, "Constitución": 6525877.66, "Luro": 549751.08}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 18503671.97, "Julio_sedes": {"Rivadavia": 7022765.66, "Otamendi": 148338.46, "Magallanes": 1799064.35, "Sarmiento": 5540394.31, "Constitución": 3993109.19, "Luro": 0}, "total": 71332795.4}, {"nombre": "PREVENCION SALUD", "num": 306, "Abril": 12175979.48, "Abril_sedes": {"Rivadavia": 3805910.1, "Otamendi": 0, "Magallanes": 1754944.7, "Sarmiento": 2411895.46, "Constitución": 3168668.08, "Luro": 1034561.14}, "Mayo": 16953841.38, "Mayo_sedes": {"Rivadavia": 4675892.37, "Otamendi": 0, "Magallanes": 2311863.04, "Sarmiento": 3062369.82, "Constitución": 5778918.41, "Luro": 1124797.74}, "Junio": 16495553.85, "Junio_sedes": {"Rivadavia": 5576172.11, "Otamendi": 300428.32, "Magallanes": 2046101.57, "Sarmiento": 3477312.52, "Constitución": 4136971.53, "Luro": 958567.8}, "Julio": 23088659.62, "Julio_sedes": {"Rivadavia": 10786315.82, "Otamendi": 141010.22, "Magallanes": 3567979.62, "Sarmiento": 4470432.4, "Constitución": 2922658.83, "Luro": 1200262.73}, "total": 68714034.33}, {"nombre": "SWISS MEDICAL-AMBULATORIO-VOLUNTARI", "num": 605, "Abril": 14435000.4, "Abril_sedes": {"Rivadavia": 4910207.31, "Otamendi": 194243.95, "Magallanes": 463611.85, "Sarmiento": 6345832.46, "Constitución": 2423555.87, "Luro": 97548.96}, "Mayo": 15328862.33, "Mayo_sedes": {"Rivadavia": 5670241.34, "Otamendi": 153471.81, "Magallanes": 900319.56, "Sarmiento": 3338672.53, "Constitución": 4562952.63, "Luro": 703204.46}, "Junio": 17171907.89, "Junio_sedes": {"Rivadavia": 7117167.67, "Otamendi": 0, "Magallanes": 825037.99, "Sarmiento": 4707287.15, "Constitución": 4209410.28, "Luro": 313004.8}, "Julio": 12668689.87, "Julio_sedes": {"Rivadavia": 4834234.93, "Otamendi": 573247.03, "Magallanes": 1096440.85, "Sarmiento": 3281618.52, "Constitución": 2883148.54, "Luro": 0}, "total": 59604460.49}, {"nombre": "IOMA-AMBULATORIO-OBLIGATORIO-PRESTA", "num": 388, "Abril": 11094227.42, "Abril_sedes": {"Rivadavia": 9678087.18, "Otamendi": 788073.46, "Magallanes": 89768.17, "Sarmiento": 99995.64, "Constitución": 15080.85, "Luro": 423222.12}, "Mayo": 11803184.25, "Mayo_sedes": {"Rivadavia": 10596199.48, "Otamendi": 531669.35, "Magallanes": 57087.07, "Sarmiento": 58380.19, "Constitución": 44988.37, "Luro": 514859.79}, "Junio": 11656336.27, "Junio_sedes": {"Rivadavia": 10640559.49, "Otamendi": 562845.81, "Magallanes": 24191.42, "Sarmiento": 74283.15, "Constitución": 37515.33, "Luro": 316941.07}, "Julio": 12275245.38, "Julio_sedes": {"Rivadavia": 10953776.24, "Otamendi": 657208.73, "Magallanes": 22434.48, "Sarmiento": 135235.45, "Constitución": 73399.91, "Luro": 433190.57}, "total": 46828993.32}, {"nombre": "S.U.M.A. (100%)", "num": 968, "Abril": 11710194.62, "Abril_sedes": {"Rivadavia": 3285892.36, "Otamendi": 117989.14, "Magallanes": 1365899.43, "Sarmiento": 2743290.0, "Constitución": 3767571.53, "Luro": 429552.16}, "Mayo": 10816449.11, "Mayo_sedes": {"Rivadavia": 4790115.24, "Otamendi": 0, "Magallanes": 1290546.22, "Sarmiento": 1678658.62, "Constitución": 3033248.54, "Luro": 23880.49}, "Junio": 11514422.39, "Junio_sedes": {"Rivadavia": 4368762.84, "Otamendi": 0, "Magallanes": 715762.52, "Sarmiento": 3184820.36, "Constitución": 2980439.84, "Luro": 264636.83}, "Julio": 12655389.9, "Julio_sedes": {"Rivadavia": 4480737.81, "Otamendi": 0, "Magallanes": 1223542.99, "Sarmiento": 3659882.47, "Constitución": 3046941.74, "Luro": 244284.89}, "total": 46696456.02}, {"nombre": "SANCOR  (VOLUNTARIO)", "num": 281, "Abril": 8490561.21, "Abril_sedes": {"Rivadavia": 4512577.87, "Otamendi": 107766.69, "Magallanes": 623732.68, "Sarmiento": 1198734.22, "Constitución": 1784260.9, "Luro": 263488.85}, "Mayo": 11213256.73, "Mayo_sedes": {"Rivadavia": 2509791.19, "Otamendi": 252882.88, "Magallanes": 1980166.72, "Sarmiento": 1886049.37, "Constitución": 3430946.82, "Luro": 1153419.75}, "Junio": 13878971.39, "Junio_sedes": {"Rivadavia": 5500941.88, "Otamendi": 398197.82, "Magallanes": 1632709.47, "Sarmiento": 3113259.82, "Constitución": 2283450.91, "Luro": 950411.49}, "Julio": 10807609.42, "Julio_sedes": {"Rivadavia": 5505561.31, "Otamendi": 294850.45, "Magallanes": 782076.98, "Sarmiento": 1105764.56, "Constitución": 2752170.89, "Luro": 367185.23}, "total": 44390398.75}, {"nombre": "PAMI UGL XI - (PRACTICAS A VALOR FIJO)", "num": 254, "Abril": 11928548.32, "Abril_sedes": {"Rivadavia": 7658453.14, "Otamendi": 279929.2, "Magallanes": 2006015.72, "Sarmiento": 577808.8, "Constitución": 899412.58, "Luro": 506928.88}, "Mayo": 11974943.39, "Mayo_sedes": {"Rivadavia": 7671000.68, "Otamendi": 493694.85, "Magallanes": 1643081.2, "Sarmiento": 516888.88, "Constitución": 1064167.73, "Luro": 586110.05}, "Junio": 10038638.48, "Junio_sedes": {"Rivadavia": 6194647.83, "Otamendi": 179914.0, "Magallanes": 1540507.14, "Sarmiento": 760196.24, "Constitución": 993576.82, "Luro": 369796.45}, "Julio": 9998672.94, "Julio_sedes": {"Rivadavia": 6038188.2, "Otamendi": 200286.0, "Magallanes": 2129787.81, "Sarmiento": 540977.52, "Constitución": 733339.17, "Luro": 356094.24}, "total": 43940803.13}, {"nombre": "ACA SALUD (AMBULATORIO)-OBLIGATORIO", "num": 506, "Abril": 6094281.37, "Abril_sedes": {"Rivadavia": 5028084.2, "Otamendi": 507882.55, "Magallanes": 123733.48, "Sarmiento": 0, "Constitución": 0, "Luro": 434581.14}, "Mayo": 7777717.53, "Mayo_sedes": {"Rivadavia": 6337595.12, "Otamendi": 729641.95, "Magallanes": 46940.06, "Sarmiento": 0, "Constitución": 92532.94, "Luro": 571007.46}, "Junio": 9170237.4, "Junio_sedes": {"Rivadavia": 8272504.67, "Otamendi": 587997.93, "Magallanes": 26414.3, "Sarmiento": 0, "Constitución": 39704.75, "Luro": 243615.75}, "Julio": 11232749.04, "Julio_sedes": {"Rivadavia": 10100942.07, "Otamendi": 610914.97, "Magallanes": 111565.7, "Sarmiento": 220895.29, "Constitución": 42988.88, "Luro": 145442.13}, "total": 34274985.34}, {"nombre": "ACA SALUD (AMBULATORIO) GRAVADO", "num": 508, "Abril": 4937753.7, "Abril_sedes": {"Rivadavia": 4516871.38, "Otamendi": 0, "Magallanes": 95495.56, "Sarmiento": 70540.96, "Constitución": 147484.28, "Luro": 107361.52}, "Mayo": 7537975.89, "Mayo_sedes": {"Rivadavia": 6089017.61, "Otamendi": 849226.38, "Magallanes": 103028.75, "Sarmiento": 111534.12, "Constitución": 79639.01, "Luro": 305530.02}, "Junio": 11685038.77, "Junio_sedes": {"Rivadavia": 10416018.73, "Otamendi": 396208.94, "Magallanes": 82340.71, "Sarmiento": 0, "Constitución": 0, "Luro": 790470.39}, "Julio": 9532613.25, "Julio_sedes": {"Rivadavia": 7843801.02, "Otamendi": 876126.12, "Magallanes": 268755.5, "Sarmiento": 0, "Constitución": 340722.53, "Luro": 203208.08}, "total": 33693381.61}, {"nombre": "OSEPJANA- MASTER 20-EVOLUTION-EXCLUS", "num": 130, "Abril": 12843883.56, "Abril_sedes": {"Rivadavia": 5446990.77, "Otamendi": 0, "Magallanes": 3230599.67, "Sarmiento": 2464321.72, "Constitución": 1462909.5, "Luro": 239061.9}, "Mayo": 7437353.7, "Mayo_sedes": {"Rivadavia": 2939626.67, "Otamendi": 102991.45, "Magallanes": 1073855.79, "Sarmiento": 1134563.52, "Constitución": 1587236.93, "Luro": 599079.34}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 9101074.19, "Julio_sedes": {"Rivadavia": 5412889.1, "Otamendi": 0, "Magallanes": 1000601.95, "Sarmiento": 912076.7, "Constitución": 1328340.55, "Luro": 447165.89}, "total": 29382311.45}, {"nombre": "BANCO PROVINCIA (NRO. PREST.2701)", "num": 61, "Abril": 5729926.67, "Abril_sedes": {"Rivadavia": 2767996.05, "Otamendi": 437702.66, "Magallanes": 374826.02, "Sarmiento": 768512.37, "Constitución": 1167277.46, "Luro": 213612.11}, "Mayo": 9136262.9, "Mayo_sedes": {"Rivadavia": 4347394.83, "Otamendi": 62474.32, "Magallanes": 237680.89, "Sarmiento": 1861388.1, "Constitución": 2521617.65, "Luro": 105707.11}, "Junio": 6993584.32, "Junio_sedes": {"Rivadavia": 2548296.26, "Otamendi": 183260.3, "Magallanes": 296765.08, "Sarmiento": 866439.39, "Constitución": 3098823.29, "Luro": 0}, "Julio": 6852654.3, "Julio_sedes": {"Rivadavia": 1683286.38, "Otamendi": 272770.66, "Magallanes": 141685.86, "Sarmiento": 1980283.02, "Constitución": 2475620.83, "Luro": 299007.55}, "total": 28712428.19}, {"nombre": "FEDERADA 25 DE JUNIO - SAMI (PLAN 760 -PLAN MEDICO) EXENTO Y GRAVADO", "num": 385, "Abril": 6229961.22, "Abril_sedes": {"Rivadavia": 5669085.61, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 335801.38, "Constitución": 38848.5, "Luro": 186225.73}, "Mayo": 6288248.39, "Mayo_sedes": {"Rivadavia": 5777925.96, "Otamendi": 196331.98, "Magallanes": 40210.95, "Sarmiento": 120180.08, "Constitución": 61858.18, "Luro": 91741.24}, "Junio": 8510891.33, "Junio_sedes": {"Rivadavia": 7617963.28, "Otamendi": 55862.66, "Magallanes": 34693.51, "Sarmiento": 138269.63, "Constitución": 99103.84, "Luro": 564998.41}, "Julio": 7231948.95, "Julio_sedes": {"Rivadavia": 6829191.07, "Otamendi": 44343.43, "Magallanes": 128991.6, "Sarmiento": 112626.25, "Constitución": 116796.6, "Luro": 0}, "total": 28261049.89}, {"nombre": "O.S.P.E.D.Y.C.", "num": 184, "Abril": 5334414.14, "Abril_sedes": {"Rivadavia": 1248201.81, "Otamendi": 0, "Magallanes": 348647.05, "Sarmiento": 84524.91, "Constitución": 2660009.0, "Luro": 993031.37}, "Mayo": 6318469.06, "Mayo_sedes": {"Rivadavia": 3663008.28, "Otamendi": 0, "Magallanes": 903270.34, "Sarmiento": 227479.21, "Constitución": 1141468.41, "Luro": 383242.82}, "Junio": 7984719.19, "Junio_sedes": {"Rivadavia": 1571635.23, "Otamendi": 0, "Magallanes": 1391193.35, "Sarmiento": 3232798.45, "Constitución": 700043.69, "Luro": 1089048.47}, "Julio": 6463077.66, "Julio_sedes": {"Rivadavia": 2962704.36, "Otamendi": 0, "Magallanes": 975608.19, "Sarmiento": 852701.65, "Constitución": 1211116.21, "Luro": 460947.25}, "total": 26100680.05}, {"nombre": "UNION PERSONAL-RESTO DE LOS PLANES", "num": 74, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 10104531.14, "Junio_sedes": {"Rivadavia": 4914969.88, "Otamendi": 105198.18, "Magallanes": 1154132.29, "Sarmiento": 1011643.6, "Constitución": 2741156.19, "Luro": 177431.0}, "Julio": 15090685.09, "Julio_sedes": {"Rivadavia": 5940855.29, "Otamendi": 272452.06, "Magallanes": 1880363.22, "Sarmiento": 2374134.39, "Constitución": 4201323.55, "Luro": 421556.58}, "total": 25195216.23}, {"nombre": "FEDERADA 25 DE JUNIO - SAMI (PLAN 760 -PLAN MEDICO) EXENTO Y GRAVADO", "num": 395, "Abril": 6052312.89, "Abril_sedes": {"Rivadavia": 5243913.0, "Otamendi": 120298.5, "Magallanes": 89917.59, "Sarmiento": 37580.22, "Constitución": 42114.11, "Luro": 518489.47}, "Mayo": 5479141.08, "Mayo_sedes": {"Rivadavia": 4631467.01, "Otamendi": 18110.95, "Magallanes": 208472.61, "Sarmiento": 40296.87, "Constitución": 225481.33, "Luro": 355312.31}, "Junio": 6676377.74, "Junio_sedes": {"Rivadavia": 5876995.31, "Otamendi": 0, "Magallanes": 122813.1, "Sarmiento": 47437.94, "Constitución": 300105.88, "Luro": 329025.51}, "Julio": 6297954.19, "Julio_sedes": {"Rivadavia": 5626590.62, "Otamendi": 14901.89, "Magallanes": 38063.52, "Sarmiento": 86255.56, "Constitución": 291873.66, "Luro": 240268.94}, "total": 24505785.9}, {"nombre": "GALENO-AMBULATORIO-GRAVADO", "num": 367, "Abril": 5075094.42, "Abril_sedes": {"Rivadavia": 1849129.69, "Otamendi": 0, "Magallanes": 760820.42, "Sarmiento": 1466243.3, "Constitución": 998901.01, "Luro": 0}, "Mayo": 6588366.36, "Mayo_sedes": {"Rivadavia": 3411828.18, "Otamendi": 0, "Magallanes": 652592.42, "Sarmiento": 1034354.06, "Constitución": 1241211.0, "Luro": 248380.7}, "Junio": 6428097.95, "Junio_sedes": {"Rivadavia": 2448748.97, "Otamendi": 0, "Magallanes": 554380.79, "Sarmiento": 2106287.49, "Constitución": 1318680.7, "Luro": 0}, "Julio": 5682995.41, "Julio_sedes": {"Rivadavia": 2085764.54, "Otamendi": 0, "Magallanes": 539783.77, "Sarmiento": 1528653.72, "Constitución": 1418203.13, "Luro": 110590.25}, "total": 23774554.14}, {"nombre": "OSDEPYM", "num": 617, "Abril": 4640842.92, "Abril_sedes": {"Rivadavia": 2017688.35, "Otamendi": 0, "Magallanes": 940007.33, "Sarmiento": 395675.79, "Constitución": 1168690.55, "Luro": 118780.9}, "Mayo": 12455717.21, "Mayo_sedes": {"Rivadavia": 5781798.09, "Otamendi": 0, "Magallanes": 2319444.1, "Sarmiento": 2061975.66, "Constitución": 1433683.78, "Luro": 858815.58}, "Junio": -205880.0, "Junio_sedes": {"Rivadavia": -74480.0, "Otamendi": 0, "Magallanes": -27900.0, "Sarmiento": -72900.0, "Constitución": -18900.0, "Luro": -11700.0}, "Julio": 3836885.0, "Julio_sedes": {"Rivadavia": 1688106.09, "Otamendi": 0, "Magallanes": 584843.06, "Sarmiento": 621133.04, "Constitución": 927037.17, "Luro": 15765.64}, "total": 20727565.13}, {"nombre": "GALENO-AMBULATORIO-OBLIGATORIO", "num": 371, "Abril": 3852728.98, "Abril_sedes": {"Rivadavia": 1179601.88, "Otamendi": 0, "Magallanes": 465668.18, "Sarmiento": 1144814.48, "Constitución": 717955.77, "Luro": 344688.67}, "Mayo": 5971709.32, "Mayo_sedes": {"Rivadavia": 1446503.97, "Otamendi": 133221.49, "Magallanes": 830876.71, "Sarmiento": 1239627.5, "Constitución": 1805427.96, "Luro": 516051.69}, "Junio": 5297369.07, "Junio_sedes": {"Rivadavia": 2298680.63, "Otamendi": 0, "Magallanes": 723002.01, "Sarmiento": 732067.85, "Constitución": 1376843.52, "Luro": 166775.06}, "Julio": 4806226.01, "Julio_sedes": {"Rivadavia": 2057429.26, "Otamendi": 0, "Magallanes": 344529.34, "Sarmiento": 591339.45, "Constitución": 1429975.25, "Luro": 382952.71}, "total": 19928033.38}, {"nombre": "O.A.M. - PLAN AZUL", "num": 754, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 2075726.63, "Mayo_sedes": {"Rivadavia": 898203.67, "Otamendi": 0, "Magallanes": 107304.92, "Sarmiento": 589293.63, "Constitución": 480924.41, "Luro": 0}, "Junio": 1433220.96, "Junio_sedes": {"Rivadavia": 410155.36, "Otamendi": 0, "Magallanes": 231872.0, "Sarmiento": 528422.4, "Constitución": 262771.2, "Luro": 0}, "Julio": 11852627.54, "Julio_sedes": {"Rivadavia": 5184370.78, "Otamendi": 0, "Magallanes": 2238199.32, "Sarmiento": 1560167.73, "Constitución": 2409896.16, "Luro": 459993.55}, "total": 15361575.13}, {"nombre": "PODER JUDICIAL DE LA NACION", "num": 216, "Abril": 4738546.54, "Abril_sedes": {"Rivadavia": 2271245.5, "Otamendi": 0, "Magallanes": 287064.12, "Sarmiento": 1262151.95, "Constitución": 918084.97, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 9181727.59, "Julio_sedes": {"Rivadavia": 2574475.74, "Otamendi": 0, "Magallanes": 648721.36, "Sarmiento": 3196270.62, "Constitución": 2762259.87, "Luro": 0}, "total": 13920274.13}, {"nombre": "25 DE JUNIO-GRUPO 1-PRESTAD.600580", "num": 165, "Abril": 4696095.1, "Abril_sedes": {"Rivadavia": 2065755.22, "Otamendi": 0, "Magallanes": 536255.98, "Sarmiento": 743265.84, "Constitución": 968714.65, "Luro": 382103.41}, "Mayo": 3251000.0, "Mayo_sedes": {"Rivadavia": 584260.17, "Otamendi": 0, "Magallanes": 573538.35, "Sarmiento": 801472.75, "Constitución": 1291728.73, "Luro": 0}, "Junio": 4718616.58, "Junio_sedes": {"Rivadavia": 2330505.35, "Otamendi": 0, "Magallanes": 635535.96, "Sarmiento": 902740.28, "Constitución": 583502.39, "Luro": 266332.6}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 12665711.68}, {"nombre": "CAJA DE ABOGADOS - RESTO DE LOS PLANES", "num": 87, "Abril": 1200044.03, "Abril_sedes": {"Rivadavia": 1149883.46, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 50160.57, "Constitución": 0, "Luro": 0}, "Mayo": 7160046.12, "Mayo_sedes": {"Rivadavia": 6502189.71, "Otamendi": 0, "Magallanes": 55538.4, "Sarmiento": 284645.85, "Constitución": 89058.67, "Luro": 228613.49}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 3749032.29, "Julio_sedes": {"Rivadavia": 3582384.03, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 166648.26, "Constitución": 0, "Luro": 0}, "total": 12109122.44}, {"nombre": "JERARQUICOS SALUD", "num": 214, "Abril": 3730621.14, "Abril_sedes": {"Rivadavia": 1576331.81, "Otamendi": 51946.38, "Magallanes": 603264.0, "Sarmiento": 371561.19, "Constitución": 1127517.76, "Luro": 0}, "Mayo": 1936762.07, "Mayo_sedes": {"Rivadavia": 776852.2, "Otamendi": 272490.65, "Magallanes": 97002.87, "Sarmiento": 367061.16, "Constitución": 423355.19, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 4483859.82, "Julio_sedes": {"Rivadavia": 1180766.66, "Otamendi": 121506.4, "Magallanes": 156270.91, "Sarmiento": 753149.43, "Constitución": 2272166.42, "Luro": 0}, "total": 10151243.03}, {"nombre": "IOSFA-IOSE", "num": 472, "Abril": 3146397.51, "Abril_sedes": {"Rivadavia": 2025729.34, "Otamendi": 0, "Magallanes": 581770.41, "Sarmiento": 200212.24, "Constitución": 338685.52, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 6901758.41, "Junio_sedes": {"Rivadavia": 3900485.17, "Otamendi": 0, "Magallanes": 1141398.59, "Sarmiento": 1063469.17, "Constitución": 746787.29, "Luro": 49618.19}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 10048155.92}, {"nombre": "A.M.F.F.A.", "num": 246, "Abril": 4966228.97, "Abril_sedes": {"Rivadavia": 1684721.44, "Otamendi": 87506.63, "Magallanes": 509506.32, "Sarmiento": 2000125.33, "Constitución": 440242.0, "Luro": 244127.25}, "Mayo": 891581.69, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 740698.64, "Constitución": 150883.05, "Luro": 0}, "Junio": 4068148.42, "Junio_sedes": {"Rivadavia": 1354938.82, "Otamendi": 0, "Magallanes": 611394.89, "Sarmiento": 1391112.99, "Constitución": 353654.51, "Luro": 357047.21}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 9925959.08}, {"nombre": "SEGUROS- PLAN INTEGRAL- OBLIGATORIO", "num": 515, "Abril": 3016114.69, "Abril_sedes": {"Rivadavia": 1256378.92, "Otamendi": 0, "Magallanes": 211033.06, "Sarmiento": 627569.41, "Constitución": 689055.04, "Luro": 232078.26}, "Mayo": 2501044.98, "Mayo_sedes": {"Rivadavia": 988498.76, "Otamendi": 69763.59, "Magallanes": 570439.62, "Sarmiento": 320793.26, "Constitución": 551549.75, "Luro": 0}, "Junio": 3361783.27, "Junio_sedes": {"Rivadavia": 1321970.26, "Otamendi": 20365.62, "Magallanes": 110906.22, "Sarmiento": 1115120.4, "Constitución": 710539.24, "Luro": 82881.53}, "Julio": 68571.05, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 68571.05, "Constitución": 0, "Luro": 0}, "total": 8947513.99}, {"nombre": "ESCRIBANOS NRO. PRESTADOR 173", "num": 249, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 5285533.98, "Mayo_sedes": {"Rivadavia": 3643475.05, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 1507840.16, "Constitución": 134218.77, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 3201280.52, "Julio_sedes": {"Rivadavia": 3150528.39, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 50752.13, "Luro": 0}, "total": 8486814.5}, {"nombre": "COMEI - AMBULATORIO (EXENTO Y GRAVADO)", "num": 717, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 2814767.46, "Mayo_sedes": {"Rivadavia": 2598306.93, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 162786.76, "Constitución": 53673.77, "Luro": 0}, "Junio": 2837936.76, "Junio_sedes": {"Rivadavia": 2540151.61, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 115024.45, "Constitución": 182760.7, "Luro": 0}, "Julio": 1632314.59, "Julio_sedes": {"Rivadavia": 1564881.47, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 67433.12, "Constitución": 0, "Luro": 0}, "total": 7285018.81}, {"nombre": "IOMA-AMBULATORIO-VOLUNTARIO", "num": 444, "Abril": 1701568.55, "Abril_sedes": {"Rivadavia": 1454378.89, "Otamendi": 165793.12, "Magallanes": 9480.91, "Sarmiento": 60893.24, "Constitución": 11022.39, "Luro": 0}, "Mayo": 1761297.08, "Mayo_sedes": {"Rivadavia": 1391979.55, "Otamendi": 167255.01, "Magallanes": 11022.39, "Sarmiento": 20811.56, "Constitución": 41931.44, "Luro": 128297.13}, "Junio": 1698294.89, "Junio_sedes": {"Rivadavia": 1666693.04, "Otamendi": 230349.6, "Magallanes": -70076.11, "Sarmiento": 1131.91, "Constitución": -129803.55, "Luro": 0}, "Julio": 1880671.92, "Julio_sedes": {"Rivadavia": 1355879.76, "Otamendi": 79642.68, "Magallanes": 78801.19, "Sarmiento": 100735.82, "Constitución": 241161.03, "Luro": 24451.44}, "total": 7041832.44}, {"nombre": "25 DE JUNIO-GRUPO 4000-PREST.600580", "num": 211, "Abril": 3368064.01, "Abril_sedes": {"Rivadavia": 1399205.7, "Otamendi": 0, "Magallanes": 441901.83, "Sarmiento": 631272.34, "Constitución": 572038.5, "Luro": 323645.64}, "Mayo": 264091.92, "Mayo_sedes": {"Rivadavia": 117336.13, "Otamendi": 0, "Magallanes": 40544.26, "Sarmiento": 33409.11, "Constitución": 53256.74, "Luro": 19545.68}, "Junio": 2845892.43, "Junio_sedes": {"Rivadavia": 1123825.68, "Otamendi": 0, "Magallanes": 126484.45, "Sarmiento": 653095.01, "Constitución": 942487.29, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 6478048.36}, {"nombre": "ASI", "num": 697, "Abril": 5181306.0, "Abril_sedes": {"Rivadavia": 2382333.85, "Otamendi": 51423.81, "Magallanes": 693839.3, "Sarmiento": 708663.42, "Constitución": 1159091.01, "Luro": 185954.61}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 5181306.0}, {"nombre": "LUZ Y FUERZA - AMBULATORIO- OBLIGATORIO (PRESTACION)", "num": 643, "Abril": 982300.0, "Abril_sedes": {"Rivadavia": 674850.0, "Otamendi": 0, "Magallanes": 116600.0, "Sarmiento": 0, "Constitución": 0, "Luro": 190850.0}, "Mayo": 1065625.0, "Mayo_sedes": {"Rivadavia": 129250.0, "Otamendi": 82005.0, "Magallanes": 670312.5, "Sarmiento": 0, "Constitución": 184057.5, "Luro": 0}, "Junio": 921690.0, "Junio_sedes": {"Rivadavia": 514552.5, "Otamendi": 0, "Magallanes": 229845.0, "Sarmiento": 21945.0, "Constitución": 53707.5, "Luro": 101640.0}, "Julio": 1991115.0, "Julio_sedes": {"Rivadavia": 1244950.0, "Otamendi": 0, "Magallanes": 287385.0, "Sarmiento": 98175.0, "Constitución": 235287.5, "Luro": 125317.5}, "total": 4960730.0}, {"nombre": "O.A.M. (RESTO DE LOS PLANES)", "num": 749, "Abril": 1505600.83, "Abril_sedes": {"Rivadavia": 330412.87, "Otamendi": 153384.65, "Magallanes": 311312.39, "Sarmiento": 107712.72, "Constitución": 384518.06, "Luro": 218260.14}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 983103.53, "Junio_sedes": {"Rivadavia": 386223.75, "Otamendi": 0, "Magallanes": 98115.33, "Sarmiento": 0, "Constitución": 395301.22, "Luro": 103463.23}, "Julio": 2379752.76, "Julio_sedes": {"Rivadavia": 1571022.48, "Otamendi": 0, "Magallanes": 253577.76, "Sarmiento": 0, "Constitución": 451360.52, "Luro": 103792.0}, "total": 4868457.12}, {"nombre": "OSECAC- CON COSEGURO", "num": 108, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 1086360.0, "Mayo_sedes": {"Rivadavia": 494340.0, "Otamendi": 67840.0, "Magallanes": 180500.0, "Sarmiento": 87360.0, "Constitución": 154680.0, "Luro": 101640.0}, "Junio": 1576275.0, "Junio_sedes": {"Rivadavia": 766095.0, "Otamendi": 74470.0, "Magallanes": 335740.0, "Sarmiento": 195730.0, "Constitución": 76655.0, "Luro": 127585.0}, "Julio": 1468091.15, "Julio_sedes": {"Rivadavia": 840821.77, "Otamendi": 32873.72, "Magallanes": 227359.78, "Sarmiento": 120076.11, "Constitución": 151873.65, "Luro": 95086.12}, "total": 4130726.15}, {"nombre": "MUT.DEL SINDICATO DE TRABAJ.MUNICIP", "num": 679, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 869526.0, "Mayo_sedes": {"Rivadavia": 270523.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 527003.0, "Luro": 72000.0}, "Junio": 848486.0, "Junio_sedes": {"Rivadavia": 24486.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 824000.0, "Luro": 0}, "Julio": 2346777.6, "Julio_sedes": {"Rivadavia": 488867.2, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 1857910.4, "Luro": 0}, "total": 4064789.6}, {"nombre": "OSECAC-JUBIL.PENSIO.ONCOLOG.HIV", "num": 239, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 910530.0, "Mayo_sedes": {"Rivadavia": 661890.0, "Otamendi": 26270.0, "Magallanes": 29600.0, "Sarmiento": 50320.0, "Constitución": 123580.0, "Luro": 18870.0}, "Junio": 1579165.0, "Junio_sedes": {"Rivadavia": 1058402.5, "Otamendi": 72510.0, "Magallanes": 213350.0, "Sarmiento": 81217.5, "Constitución": 120137.5, "Luro": 33547.5}, "Julio": 1401015.0, "Julio_sedes": {"Rivadavia": 927097.5, "Otamendi": 48790.0, "Magallanes": 102270.0, "Sarmiento": 182997.5, "Constitución": 72187.5, "Luro": 67672.5}, "total": 3890710.0}, {"nombre": "PAT.DE CABOTAJE-AMBULATORIO", "num": 855, "Abril": 438226.18, "Abril_sedes": {"Rivadavia": 1573.63, "Otamendi": 0, "Magallanes": 329531.6, "Sarmiento": 2906.3, "Constitución": 104214.65, "Luro": 0}, "Mayo": 1816365.21, "Mayo_sedes": {"Rivadavia": 519557.23, "Otamendi": 0, "Magallanes": 577181.85, "Sarmiento": 251270.98, "Constitución": 468355.15, "Luro": 0}, "Junio": 695189.92, "Junio_sedes": {"Rivadavia": 138055.68, "Otamendi": 0, "Magallanes": 378328.48, "Sarmiento": 178805.76, "Constitución": 0, "Luro": 0}, "Julio": 821452.8, "Julio_sedes": {"Rivadavia": 11182.08, "Otamendi": 0, "Magallanes": 630497.28, "Sarmiento": 179773.44, "Constitución": 0, "Luro": 0}, "total": 3771234.11}, {"nombre": "IOMA - PROGRAMA HIV", "num": 547, "Abril": 556400.0, "Abril_sedes": {"Rivadavia": 556400.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 821000.0, "Mayo_sedes": {"Rivadavia": 721000.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 100000.0}, "Junio": 1130000.0, "Junio_sedes": {"Rivadavia": 1130000.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 1132500.0, "Julio_sedes": {"Rivadavia": 1029000.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 103500.0}, "total": 3639900.0}, {"nombre": "IOMA-AMBUL-VOLUNT-PREST.(A HASTA I)", "num": 386, "Abril": 773364.32, "Abril_sedes": {"Rivadavia": 613143.23, "Otamendi": 125227.52, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 34993.57}, "Mayo": 840580.35, "Mayo_sedes": {"Rivadavia": 713986.45, "Otamendi": 110893.45, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 15700.45}, "Junio": 741987.82, "Junio_sedes": {"Rivadavia": 687173.9, "Otamendi": 44610.45, "Magallanes": 0, "Sarmiento": 10203.47, "Constitución": 0, "Luro": 0}, "Julio": 1236069.79, "Julio_sedes": {"Rivadavia": 1072753.77, "Otamendi": 74469.69, "Magallanes": 0, "Sarmiento": 49904.25, "Constitución": 0, "Luro": 38942.08}, "total": 3592002.28}, {"nombre": "FUNDACION COMEI - ACREDITADO", "num": 222, "Abril": 3315233.02, "Abril_sedes": {"Rivadavia": 3315233.02, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 3315233.02}, {"nombre": "O.S.P.R.E.R.A. (AMBULATORIO)", "num": 449, "Abril": 288329.44, "Abril_sedes": {"Rivadavia": 70538.47, "Otamendi": 200057.29, "Magallanes": 0, "Sarmiento": 5630.37, "Constitución": 12103.31, "Luro": 0}, "Mayo": 1412989.91, "Mayo_sedes": {"Rivadavia": 417128.13, "Otamendi": 954483.2, "Magallanes": 0, "Sarmiento": 13137.52, "Constitución": 28241.06, "Luro": 0}, "Junio": 518431.71, "Junio_sedes": {"Rivadavia": 46971.88, "Otamendi": 393719.25, "Magallanes": 0, "Sarmiento": 37623.89, "Constitución": 0, "Luro": 40116.69}, "Julio": 1087939.09, "Julio_sedes": {"Rivadavia": 27374.0, "Otamendi": 1047814.95, "Magallanes": 0, "Sarmiento": 6170.65, "Constitución": 0, "Luro": 6579.49}, "total": 3307690.15}, {"nombre": "LUIS PASTEUR, O. S.PERSONAL SAN", "num": 761, "Abril": 726866.11, "Abril_sedes": {"Rivadavia": 270374.48, "Otamendi": 0, "Magallanes": 117575.08, "Sarmiento": 138684.5, "Constitución": 200232.05, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 1546896.48, "Junio_sedes": {"Rivadavia": 440385.39, "Otamendi": 0, "Magallanes": 239634.12, "Sarmiento": 661043.35, "Constitución": 205833.62, "Luro": 0}, "Julio": 985018.85, "Julio_sedes": {"Rivadavia": 149036.54, "Otamendi": 0, "Magallanes": 328695.41, "Sarmiento": 507286.9, "Constitución": 0, "Luro": 0}, "total": 3258781.44}, {"nombre": "FATFA - CHASCOMUS", "num": 338, "Abril": 331579.4, "Abril_sedes": {"Rivadavia": 167928.3, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 163651.1, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 2884012.11, "Junio_sedes": {"Rivadavia": 732448.45, "Otamendi": 0, "Magallanes": 539271.2, "Sarmiento": 329733.14, "Constitución": 947196.69, "Luro": 335362.63}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 3215591.51}, {"nombre": "SCIS S.A. - PLAN SC 250", "num": 15, "Abril": 1831912.1, "Abril_sedes": {"Rivadavia": 647116.15, "Otamendi": 0, "Magallanes": 822566.77, "Sarmiento": 63773.5, "Constitución": 298455.68, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 609574.71, "Junio_sedes": {"Rivadavia": 128595.88, "Otamendi": 0, "Magallanes": 266645.61, "Sarmiento": 129928.47, "Constitución": 84404.75, "Luro": 0}, "Julio": 739449.09, "Julio_sedes": {"Rivadavia": 153175.77, "Otamendi": 0, "Magallanes": 418280.21, "Sarmiento": 81897.66, "Constitución": 86095.45, "Luro": 0}, "total": 3180935.9}, {"nombre": "OSDE-MAR DEL PLATA-INTERIOR-NO ACRE", "num": 961, "Abril": 645038.17, "Abril_sedes": {"Rivadavia": 622904.97, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 22133.2, "Luro": 0}, "Mayo": 797608.79, "Mayo_sedes": {"Rivadavia": 710945.9, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 86662.89, "Luro": 0}, "Junio": 1171387.2, "Junio_sedes": {"Rivadavia": 1171387.2, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 489180.39, "Julio_sedes": {"Rivadavia": 489180.39, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 3103214.55}, {"nombre": "OSDOP (CONEXION SALUD SRL) - CON COPAGO", "num": 545, "Abril": 1207597.01, "Abril_sedes": {"Rivadavia": 169446.67, "Otamendi": 44963.25, "Magallanes": 357953.23, "Sarmiento": 145717.88, "Constitución": 441619.2, "Luro": 47896.78}, "Mayo": 904497.46, "Mayo_sedes": {"Rivadavia": 341525.16, "Otamendi": 11990.15, "Magallanes": 108779.9, "Sarmiento": 214780.29, "Constitución": 218892.29, "Luro": 8529.67}, "Junio": 380804.03, "Junio_sedes": {"Rivadavia": 224408.46, "Otamendi": 0, "Magallanes": 14035.28, "Sarmiento": 44053.33, "Constitución": 94103.62, "Luro": 4203.34}, "Julio": 309733.82, "Julio_sedes": {"Rivadavia": 173517.93, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 86046.52, "Constitución": 39742.23, "Luro": 10427.14}, "total": 2802632.32}, {"nombre": "ASOCIACION MUTUAL COOMARPES", "num": 936, "Abril": 371388.28, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 371388.28, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 521483.07, "Mayo_sedes": {"Rivadavia": 117476.08, "Otamendi": 0, "Magallanes": 404006.99, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 927084.18, "Junio_sedes": {"Rivadavia": 302422.34, "Otamendi": 0, "Magallanes": 598698.93, "Sarmiento": 0, "Constitución": 25962.91, "Luro": 0}, "Julio": 971936.76, "Julio_sedes": {"Rivadavia": 38629.81, "Otamendi": 181745.95, "Magallanes": 751561.0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 2791892.29}, {"nombre": "OSEPJANA - BALCARCE Y MAIPU", "num": 699, "Abril": 798101.72, "Abril_sedes": {"Rivadavia": 296380.24, "Otamendi": 147116.99, "Magallanes": 253772.73, "Sarmiento": 3739.17, "Constitución": 97092.59, "Luro": 0}, "Mayo": 556240.82, "Mayo_sedes": {"Rivadavia": 517202.51, "Otamendi": 39038.31, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 235.13, "Junio_sedes": {"Rivadavia": 218.63, "Otamendi": 16.5, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 727144.98, "Julio_sedes": {"Rivadavia": 201856.53, "Otamendi": 35922.6, "Magallanes": 0, "Sarmiento": 214407.36, "Constitución": 274958.49, "Luro": 0}, "total": 2081722.65}, {"nombre": "IOMA - BONO MEPPES (PRESTACION)", "num": 253, "Abril": 485000.0, "Abril_sedes": {"Rivadavia": 369500.0, "Otamendi": 38500.0, "Magallanes": 20000.0, "Sarmiento": 18500.0, "Constitución": 20000.0, "Luro": 18500.0}, "Mayo": 518500.0, "Mayo_sedes": {"Rivadavia": 403500.0, "Otamendi": 60000.0, "Magallanes": 10000.0, "Sarmiento": 10000.0, "Constitución": 30000.0, "Luro": 5000.0}, "Junio": 540000.0, "Junio_sedes": {"Rivadavia": 430000.0, "Otamendi": 35000.0, "Magallanes": 10000.0, "Sarmiento": 30000.0, "Constitución": 15000.0, "Luro": 20000.0}, "Julio": 505000.0, "Julio_sedes": {"Rivadavia": 380000.0, "Otamendi": 25000.0, "Magallanes": 15000.0, "Sarmiento": 35000.0, "Constitución": 15000.0, "Luro": 35000.0}, "total": 2048500.0}, {"nombre": "ALIMENTACION - AMBULATORIO", "num": 290, "Abril": 660084.99, "Abril_sedes": {"Rivadavia": 439046.34, "Otamendi": 111507.19, "Magallanes": 109531.46, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 226589.48, "Mayo_sedes": {"Rivadavia": 184365.2, "Otamendi": 42224.28, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 638941.95, "Junio_sedes": {"Rivadavia": 242173.11, "Otamendi": 141989.41, "Magallanes": 101926.44, "Sarmiento": 68369.86, "Constitución": 0, "Luro": 84483.13}, "Julio": 461156.42, "Julio_sedes": {"Rivadavia": 93560.19, "Otamendi": 240802.49, "Magallanes": 0, "Sarmiento": 126793.74, "Constitución": 0, "Luro": 0}, "total": 1986772.84}, {"nombre": "O.S.P.E.R.Y.H.R.A.", "num": 64, "Abril": 521175.07, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 51454.66, "Sarmiento": 469720.41, "Constitución": 0, "Luro": 0}, "Mayo": 858843.25, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 640914.73, "Sarmiento": 217928.52, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 439448.05, "Julio_sedes": {"Rivadavia": 114049.48, "Otamendi": 0, "Magallanes": 57352.4, "Sarmiento": 268046.17, "Constitución": 0, "Luro": 0}, "total": 1819466.37}, {"nombre": "SANCOR-OBLIGATORIO-PLANES ALTOS", "num": 566, "Abril": 665143.25, "Abril_sedes": {"Rivadavia": 138412.25, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 490653.84, "Constitución": 36077.16, "Luro": 0}, "Mayo": 483462.04, "Mayo_sedes": {"Rivadavia": 425022.08, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 58439.96, "Luro": 0}, "Junio": 401588.54, "Junio_sedes": {"Rivadavia": 116525.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 285063.54, "Constitución": 0, "Luro": 0}, "Julio": 159475.0, "Julio_sedes": {"Rivadavia": 159475.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 1709668.83}, {"nombre": "ENSALUD S.A. - OSTEL JUBILADOS", "num": 573, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 1344419.54, "Mayo_sedes": {"Rivadavia": 636847.42, "Otamendi": 0, "Magallanes": 181525.47, "Sarmiento": 390372.26, "Constitución": 135674.39, "Luro": 0}, "Junio": 195815.41, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 161651.64, "Sarmiento": 34163.77, "Constitución": 0, "Luro": 0}, "Julio": -82509.01, "Julio_sedes": {"Rivadavia": -107554.65, "Otamendi": 0, "Magallanes": 20675.95, "Sarmiento": 4369.69, "Constitución": 0, "Luro": 0}, "total": 1457725.94}, {"nombre": "OSFATUN-UNIVERSIDADES NACIONALES", "num": 458, "Abril": 201334.77, "Abril_sedes": {"Rivadavia": 101862.83, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 99471.94, "Luro": 0}, "Mayo": 576235.72, "Mayo_sedes": {"Rivadavia": 196872.88, "Otamendi": 0, "Magallanes": 78190.4, "Sarmiento": 163142.01, "Constitución": 138030.43, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 572761.01, "Julio_sedes": {"Rivadavia": 228081.92, "Otamendi": 0, "Magallanes": 24989.85, "Sarmiento": 0, "Constitución": 292229.64, "Luro": 27459.6}, "total": 1350331.5}, {"nombre": "OSDOP - AMBULATORIO CON COPAGO (OBLIGATORIO)", "num": 704, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 204925.0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 6125.0, "Magallanes": 0, "Sarmiento": 55850.0, "Constitución": 60075.0, "Luro": 82875.0}, "Junio": 334425.0, "Junio_sedes": {"Rivadavia": 36375.0, "Otamendi": 0, "Magallanes": 41875.0, "Sarmiento": 0, "Constitución": 256175.0, "Luro": 0}, "Julio": 796350.0, "Julio_sedes": {"Rivadavia": 239525.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 284125.0, "Constitución": 72725.0, "Luro": 199975.0}, "total": 1335700.0}, {"nombre": "SANCOR-VOLUNTARIO-PLANES ALTOS", "num": 565, "Abril": 385770.33, "Abril_sedes": {"Rivadavia": 385770.33, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 138477.76, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 138477.76, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 597091.6, "Junio_sedes": {"Rivadavia": 283183.87, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 313907.73, "Luro": 0}, "Julio": 113013.88, "Julio_sedes": {"Rivadavia": 113013.88, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 1234353.57}, {"nombre": "OSMATA", "num": 663, "Abril": 439424.66, "Abril_sedes": {"Rivadavia": 439424.66, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 12749.38, "Mayo_sedes": {"Rivadavia": 7310.51, "Otamendi": 0, "Magallanes": 2624.99, "Sarmiento": 2813.88, "Constitución": 0, "Luro": 0}, "Junio": 473967.23, "Junio_sedes": {"Rivadavia": 153504.2, "Otamendi": 0, "Magallanes": 116908.03, "Sarmiento": 203555.0, "Constitución": 0, "Luro": 0}, "Julio": 299782.96, "Julio_sedes": {"Rivadavia": 299782.96, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 1225924.23}, {"nombre": "THEMA RED MEDICA- ONIX - OPALO", "num": 609, "Abril": 283201.2, "Abril_sedes": {"Rivadavia": 180808.72, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 102392.48, "Luro": 0}, "Mayo": 283042.15, "Mayo_sedes": {"Rivadavia": 31834.91, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 104496.16, "Constitución": 146711.08, "Luro": 0}, "Junio": 226078.19, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 68915.53, "Sarmiento": 24096.89, "Constitución": 25773.82, "Luro": 107291.95}, "Julio": 265369.99, "Julio_sedes": {"Rivadavia": 35146.38, "Otamendi": 0, "Magallanes": 60822.97, "Sarmiento": 55805.73, "Constitución": 113594.91, "Luro": 0}, "total": 1057691.53}, {"nombre": "O.S.P.R.E.R.A. (MONOTRIBUTO)", "num": 450, "Abril": 5222.96, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 2502.67, "Sarmiento": 2720.29, "Constitución": 0, "Luro": 0}, "Mayo": 174667.53, "Mayo_sedes": {"Rivadavia": 99825.44, "Otamendi": 62655.2, "Magallanes": 5839.55, "Sarmiento": 6347.34, "Constitución": 0, "Luro": 0}, "Junio": 449767.81, "Junio_sedes": {"Rivadavia": 201932.18, "Otamendi": 50319.79, "Magallanes": 0, "Sarmiento": 37983.89, "Constitución": 80544.97, "Luro": 78986.98}, "Julio": 367505.09, "Julio_sedes": {"Rivadavia": 57873.27, "Otamendi": 83187.58, "Magallanes": 0, "Sarmiento": 66160.14, "Constitución": 147329.54, "Luro": 12954.56}, "total": 997163.39}, {"nombre": "IOMA-PLAN MATERNO-OBLIGATORIOS", "num": 556, "Abril": 238238.0, "Abril_sedes": {"Rivadavia": 195620.0, "Otamendi": 22878.0, "Magallanes": 4674.0, "Sarmiento": 0, "Constitución": 0, "Luro": 15066.0}, "Mayo": 250545.0, "Mayo_sedes": {"Rivadavia": 184770.0, "Otamendi": 4743.0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 61032.0}, "Junio": 270080.0, "Junio_sedes": {"Rivadavia": 234080.0, "Otamendi": 864.0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 35136.0}, "Julio": 227728.0, "Julio_sedes": {"Rivadavia": 119080.0, "Otamendi": 74832.0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 7200.0, "Luro": 26616.0}, "total": 986591.0}, {"nombre": "SEGUROS - PADRON AOL - OBLIGATORIO - CON APB", "num": 432, "Abril": 195468.36, "Abril_sedes": {"Rivadavia": 41383.2, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 75873.42, "Constitución": 78211.74, "Luro": 0}, "Mayo": 218284.73, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 170260.04, "Constitución": 48024.69, "Luro": 0}, "Junio": 39131.34, "Junio_sedes": {"Rivadavia": 39131.34, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 433483.8, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 433483.8, "Constitución": 0, "Luro": 0}, "total": 886368.23}, {"nombre": "OSEPJANA - PLAN CLASSIC 20- SENIOR 10", "num": 113, "Abril": 272756.88, "Abril_sedes": {"Rivadavia": 53799.51, "Otamendi": 0, "Magallanes": 139976.85, "Sarmiento": 0, "Constitución": 78980.52, "Luro": 0}, "Mayo": 140383.46, "Mayo_sedes": {"Rivadavia": 140383.46, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": -18716.75, "Junio_sedes": {"Rivadavia": -18716.75, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 489317.17, "Julio_sedes": {"Rivadavia": 117602.81, "Otamendi": 0, "Magallanes": 178332.44, "Sarmiento": 156985.1, "Constitución": 36396.82, "Luro": 0}, "total": 883740.76}, {"nombre": "UNION PERSONAL - PLAN 0001-0009", "num": 12, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 880053.78, "Junio_sedes": {"Rivadavia": 561748.24, "Otamendi": 0, "Magallanes": 278324.24, "Sarmiento": 1400.64, "Constitución": 0, "Luro": 38580.66}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 880053.78}, {"nombre": "OSECAC - MONOTRIBUTISTA", "num": 111, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 217800.0, "Mayo_sedes": {"Rivadavia": 101200.0, "Otamendi": 30800.0, "Magallanes": 0, "Sarmiento": 5000.0, "Constitución": 60800.0, "Luro": 20000.0}, "Junio": 369734.5, "Junio_sedes": {"Rivadavia": 201502.0, "Otamendi": 33325.0, "Magallanes": 55696.5, "Sarmiento": 10927.5, "Constitución": 29304.5, "Luro": 38979.0}, "Julio": 248641.75, "Julio_sedes": {"Rivadavia": 137271.75, "Otamendi": 0, "Magallanes": 39131.75, "Sarmiento": 25497.5, "Constitución": 21220.5, "Luro": 25520.25}, "total": 836176.25}, {"nombre": "CAJA DE ABOGADOS-PLAN NOVEL", "num": 453, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 542417.75, "Mayo_sedes": {"Rivadavia": 489389.67, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 53028.08, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 250518.12, "Julio_sedes": {"Rivadavia": 250518.12, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 792935.87}, {"nombre": "OSEPJANA - PLAN SENIOR 20- EXENTO", "num": 115, "Abril": 480605.54, "Abril_sedes": {"Rivadavia": 468101.69, "Otamendi": 0, "Magallanes": 12503.85, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 196386.58, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 196386.58}, "Junio": 271.24, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 271.24}, "Julio": 110425.92, "Julio_sedes": {"Rivadavia": 43688.22, "Otamendi": 66737.7, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 787689.28}, {"nombre": "PAMI - PADRON GENERAL - OTROS DISTRITOS", "num": 758, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 54867.46, "Mayo_sedes": {"Rivadavia": 667.46, "Otamendi": 0, "Magallanes": 54200.0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 95752.06, "Junio_sedes": {"Rivadavia": 32202.25, "Otamendi": 0, "Magallanes": 2286.66, "Sarmiento": 61263.15, "Constitución": 0, "Luro": 0}, "Julio": 582966.39, "Julio_sedes": {"Rivadavia": 541530.92, "Otamendi": 0, "Magallanes": 41435.47, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 733585.91}, {"nombre": "O.P.D.E.A.", "num": 260, "Abril": 275975.34, "Abril_sedes": {"Rivadavia": 35317.4, "Otamendi": 0, "Magallanes": 38380.88, "Sarmiento": 0, "Constitución": 202277.06, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 355375.47, "Junio_sedes": {"Rivadavia": 38083.3, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 125737.29, "Constitución": 191554.88, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 631350.81}, {"nombre": "IOMA-PROGRAMA P. CANCER COLORRECTA", "num": 454, "Abril": 137200.0, "Abril_sedes": {"Rivadavia": 137200.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 180000.0, "Mayo_sedes": {"Rivadavia": 180000.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 163200.0, "Junio_sedes": {"Rivadavia": 132600.0, "Otamendi": 10200.0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 20400.0, "Luro": 0}, "Julio": 102000.0, "Julio_sedes": {"Rivadavia": 102000.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 582400.0}, {"nombre": "OSDOP (CONEXION SALUD SRL) - SIN COPAGO (INTERNADOS-PMI-HIV-ONCOLOGICOS)", "num": 546, "Abril": 222047.2, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 88259.24, "Magallanes": 24401.06, "Sarmiento": 81515.56, "Constitución": 27871.34, "Luro": 0}, "Mayo": 241732.27, "Mayo_sedes": {"Rivadavia": 32458.86, "Otamendi": 57711.26, "Magallanes": 7173.81, "Sarmiento": 23965.24, "Constitución": 70522.51, "Luro": 49900.59}, "Junio": 93055.26, "Junio_sedes": {"Rivadavia": 2855.83, "Otamendi": 23067.26, "Magallanes": 0, "Sarmiento": 1343.92, "Constitución": 29549.38, "Luro": 36238.87}, "Julio": 10418.25, "Julio_sedes": {"Rivadavia": 7084.41, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 3333.84, "Constitución": 0, "Luro": 0}, "total": 567252.98}, {"nombre": "OSDOP - AMBULATORIO SIN COPAGO (OBLIGATORIO)", "num": 706, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 46250.0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 5000.0, "Constitución": 41250.0, "Luro": 0}, "Junio": 166250.0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 64375.0, "Sarmiento": 101875.0, "Constitución": 0, "Luro": 0}, "Julio": 316250.0, "Julio_sedes": {"Rivadavia": 21875.0, "Otamendi": 0, "Magallanes": 162500.0, "Sarmiento": 20000.0, "Constitución": 111875.0, "Luro": 0}, "total": 528750.0}, {"nombre": "CONFERENCIA EPISCOPAL ARGENTINA", "num": 436, "Abril": 528505.96, "Abril_sedes": {"Rivadavia": 190151.84, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 338354.12, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 528505.96}, {"nombre": "GRUPO SAN NICOLAS-3000-3100-4100", "num": 611, "Abril": 411862.88, "Abril_sedes": {"Rivadavia": 174254.4, "Otamendi": 0, "Magallanes": 162680.0, "Sarmiento": 0, "Constitución": 0, "Luro": 74928.48}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 111056.42, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 111056.42, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 522919.3}, {"nombre": "IOMA-AMBUL-VOLUNT.PRESTA.(J HASTA Z", "num": 387, "Abril": 82615.86, "Abril_sedes": {"Rivadavia": 82615.86, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 134542.49, "Mayo_sedes": {"Rivadavia": 134542.49, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 201267.58, "Junio_sedes": {"Rivadavia": 201267.58, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 81539.44, "Julio_sedes": {"Rivadavia": 65838.99, "Otamendi": 15700.45, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 499965.37}, {"nombre": "OSECAC-PLAN PRIVILEGIO I-SIN COSEG", "num": 337, "Abril": 120.0, "Abril_sedes": {"Rivadavia": 115.0, "Otamendi": 0, "Magallanes": 5.0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 185835.0, "Mayo_sedes": {"Rivadavia": 71635.0, "Otamendi": 0, "Magallanes": 5.0, "Sarmiento": 77310.0, "Constitución": 20.0, "Luro": 36865.0}, "Junio": 162720.0, "Junio_sedes": {"Rivadavia": 103875.0, "Otamendi": 0, "Magallanes": 22530.0, "Sarmiento": 11290.0, "Constitución": 25025.0, "Luro": 0}, "Julio": 146333.75, "Julio_sedes": {"Rivadavia": 119655.0, "Otamendi": 0, "Magallanes": 3097.5, "Sarmiento": 4235.0, "Constitución": 7026.25, "Luro": 12320.0}, "total": 495008.75}, {"nombre": "ENSALUD S.A. -OSTEL ACTIVOS", "num": 572, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 504177.41, "Mayo_sedes": {"Rivadavia": 297885.92, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 206291.49, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": -15000.0, "Julio_sedes": {"Rivadavia": -10000.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": -5000.0, "Luro": 0}, "total": 489177.41}, {"nombre": "IOMA-FERTILIZACION ASISTIDA-OBLIGAT", "num": 286, "Abril": 69302.0, "Abril_sedes": {"Rivadavia": 44540.0, "Otamendi": 24762.0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 174020.0, "Mayo_sedes": {"Rivadavia": 174020.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 10680.0, "Junio_sedes": {"Rivadavia": 10680.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 219520.0, "Julio_sedes": {"Rivadavia": 219520.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 473522.0}, {"nombre": "PAMI- VETERANOS DE GUERRA", "num": 495, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 457588.08, "Junio_sedes": {"Rivadavia": 279503.25, "Otamendi": 29699.24, "Magallanes": 34211.5, "Sarmiento": 36978.9, "Constitución": 77195.19, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 457588.08}, {"nombre": "PERFUMERIA E. W. HOPE", "num": 693, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 128810.0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 128810.0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 318180.53, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 63403.61, "Constitución": 254776.92, "Luro": 0}, "total": 446990.53}, {"nombre": "A.P.S.O.T", "num": 187, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 286555.42, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 286555.42, "Constitución": 0, "Luro": 0}, "Julio": 145043.34, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 145043.34, "Constitución": 0, "Luro": 0}, "total": 431598.76}, {"nombre": "S.P.B. - NOMENCLADOR IOMA", "num": 587, "Abril": 100600.0, "Abril_sedes": {"Rivadavia": 100600.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 146200.0, "Mayo_sedes": {"Rivadavia": 97000.0, "Otamendi": 0, "Magallanes": 20000.0, "Sarmiento": 0, "Constitución": 0, "Luro": 29200.0}, "Junio": 4044.41, "Junio_sedes": {"Rivadavia": 2446.02, "Otamendi": 0, "Magallanes": 605.45, "Sarmiento": 0, "Constitución": 0, "Luro": 992.94}, "Julio": 155655.59, "Julio_sedes": {"Rivadavia": 98853.98, "Otamendi": 0, "Magallanes": 14394.55, "Sarmiento": 0, "Constitución": 0, "Luro": 42407.06}, "total": 406500.0}, {"nombre": "OSJERA -PLAN PSO 600-PLAN BASICO", "num": 374, "Abril": 151047.96, "Abril_sedes": {"Rivadavia": 92766.43, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 58281.53, "Constitución": 0, "Luro": 0}, "Mayo": 115507.25, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 115507.25, "Luro": 0}, "Junio": 128229.41, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 17827.29, "Constitución": 110402.12, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 394784.62}, {"nombre": "VIA MEDICA S.A. (FUTBOLISTAS)", "num": 192, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 371908.59, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 371908.59, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 371908.59}, {"nombre": "O.S.P.I.M. (IND.MADERERA)", "num": 152, "Abril": 128307.29, "Abril_sedes": {"Rivadavia": 107783.84, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 20523.45}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 210715.5, "Junio_sedes": {"Rivadavia": 210715.5, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 339022.79}, {"nombre": "O.S.P.E.P.B.A.(PERS.DE ESCRIBANIA)", "num": 122, "Abril": 111170.12, "Abril_sedes": {"Rivadavia": 111170.12, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 194672.19, "Mayo_sedes": {"Rivadavia": 44420.12, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 150252.07, "Luro": 0}, "Junio": 28195.93, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 28195.93, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 334038.24}, {"nombre": "U. PERSONAL (PLAN PMO MONOT,ETC.)", "num": 75, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 132922.06, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 132922.06, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 184735.03, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 184735.03, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 317657.09}, {"nombre": "GRUPO SAN NICOLAS - PLAN 2100", "num": 612, "Abril": 15914.8, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 15914.8, "Luro": 0}, "Mayo": 58463.16, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 58463.16, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 73650.16, "Junio_sedes": {"Rivadavia": 73650.16, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 155814.07, "Julio_sedes": {"Rivadavia": 74694.38, "Otamendi": 0, "Magallanes": 81119.69, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 303842.19}, {"nombre": "OSMATA - PLAN PMO", "num": 294, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 275897.6, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 275897.6, "Luro": 0}, "total": 275897.6}, {"nombre": "ABOGADOS - PLAN ORIGEN/ORIGEN +", "num": 150, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 255821.32, "Mayo_sedes": {"Rivadavia": 211201.14, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 44620.18, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 255821.32}, {"nombre": "LUZ Y FUERZA - AMBULATORIO- VOLUNTARIO (PRESTACION)", "num": 644, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 134312.75, "Mayo_sedes": {"Rivadavia": 134312.75, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 120975.4, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 120975.4, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 255288.15}, {"nombre": "IOMA-FERTILIZACION ASISTIDA-PRESTAC", "num": 484, "Abril": 46242.64, "Abril_sedes": {"Rivadavia": 46242.64, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 115701.61, "Junio_sedes": {"Rivadavia": 56612.09, "Otamendi": 59089.52, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 92485.28, "Julio_sedes": {"Rivadavia": 92485.28, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 254429.53}, {"nombre": "IOMA-CONVENIO INTERPROVINCIAL", "num": 548, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 58590.0, "Mayo_sedes": {"Rivadavia": 58590.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 148160.0, "Junio_sedes": {"Rivadavia": 148160.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 206750.0}, {"nombre": "SEGUROS-PLAN INTEGRAL-VOLUNTARIOS", "num": 519, "Abril": 108056.05, "Abril_sedes": {"Rivadavia": 100149.51, "Otamendi": 0, "Magallanes": 7906.54, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 45462.61, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 45462.61, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 153518.66}, {"nombre": "TELEVISION - MAR DEL PLATA", "num": 263, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 149575.91, "Mayo_sedes": {"Rivadavia": 149575.91, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 149575.91}, {"nombre": "FUNDACION COMEI - NO ACREDITADO", "num": 223, "Abril": 140157.88, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 140157.88, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 140157.88}, {"nombre": "IOMA PLAN SER - OBLIGATORIO", "num": 510, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 69123.0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 49662.0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 19461.0}, "Junio": 29760.0, "Junio_sedes": {"Rivadavia": 29760.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 29880.0, "Julio_sedes": {"Rivadavia": 29880.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 128763.0}, {"nombre": "UGL VII-AMB.CASTELLI,CHASCOMUS,PILA", "num": 280, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 62966.65, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 13688.4, "Sarmiento": 49278.25, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 48259.52, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 10491.2, "Sarmiento": 37768.32, "Constitución": 0, "Luro": 0}, "total": 111226.17}, {"nombre": "PAMI - VETERANOS DE GUERRA UGL XI - (PRACTICAS A VALOR FIJO)", "num": 270, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 95525.2, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 95525.2, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 95525.2}, {"nombre": "SCIS SA(CON COSEG)-SC50-SC100-SC150", "num": 234, "Abril": 74585.98, "Abril_sedes": {"Rivadavia": 26568.11, "Otamendi": 0, "Magallanes": 27270.61, "Sarmiento": 0, "Constitución": 20747.26, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 15953.77, "Julio_sedes": {"Rivadavia": 15953.77, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 90539.75}, {"nombre": "IOMA- AMBULATORIO-CONTROL (FABA-CEN", "num": 588, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 82881.53, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 82881.53, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 1053.62, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 1053.62, "Constitución": 0, "Luro": 0}, "total": 83935.15}, {"nombre": "OSALARA - PLANES JUEGOS DE AZAR", "num": 27, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 72524.56, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 72524.56, "Constitución": 0, "Luro": 0}, "Junio": 87.7, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 87.7, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 72612.26}, {"nombre": "ACTIVA SALUD S.R.L- OSSEG- CON COSEGURO", "num": 233, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 53049.36, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 53049.36, "Constitución": 0, "Luro": 0}, "Julio": 18028.02, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 18028.02, "Constitución": 0, "Luro": 0}, "total": 71077.38}, {"nombre": "IOMA-PLAN MATERNO-VOLUNTARIOS", "num": 446, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 38542.4, "Junio_sedes": {"Rivadavia": 38542.4, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 38542.4}, {"nombre": "OSALARA - PLAN PMO", "num": 26, "Abril": 25174.2, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 25174.2, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 25174.2}, {"nombre": "GRUPO SAN NICOLAS - INCENTIVO", "num": 615, "Abril": 8680.8, "Abril_sedes": {"Rivadavia": 2170.2, "Otamendi": 0, "Magallanes": 2170.2, "Sarmiento": 0, "Constitución": 2170.2, "Luro": 2170.2}, "Mayo": 2277.84, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 2277.84, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 4669.56, "Junio_sedes": {"Rivadavia": 2334.78, "Otamendi": 0, "Magallanes": 2334.78, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 7228.5, "Julio_sedes": {"Rivadavia": 4819.0, "Otamendi": 0, "Magallanes": 2409.5, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 22856.7}, {"nombre": "COMEI - PLAN COLORRECTAL (EXENTO)", "num": 730, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 20106.7, "Julio_sedes": {"Rivadavia": 20106.7, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 20106.7}, {"nombre": "IOMA-CONVENIO INTERPROVINCIAL-PREST", "num": 481, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 18279.48, "Julio_sedes": {"Rivadavia": 18279.48, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 18279.48}, {"nombre": "ENSALUD - OSPETELCO", "num": 571, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 10000.9, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 10000.9, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 10000.9}, {"nombre": "OSPACP - CON COSEGURO", "num": 203, "Abril": 9379.31, "Abril_sedes": {"Rivadavia": 9379.31, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 9379.31}, {"nombre": "OSECAC-PLAN MATERNO I.-SIN COSEGURO", "num": 208, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 9250.0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 9250.0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 9250.0}, {"nombre": "OSEPJANA - PLAN CLASSIC 10-EXENTO", "num": 96, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 6801.26, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 6801.26, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 6801.26}, {"nombre": "ALIMENTACION - INTERNADOS", "num": 291, "Abril": 0, "Abril_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 6396.19, "Mayo_sedes": {"Rivadavia": 6396.19, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 6396.19}, {"nombre": "O.S.B.A. (NOSSAL S.A.)", "num": 959, "Abril": 175.23, "Abril_sedes": {"Rivadavia": 175.23, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": 0, "Mayo_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": 0, "Junio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": 0, "Julio_sedes": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "total": 175.23}], "periodos_prestacion": {"10/2009": {"Abril": {"Rivadavia": 175.23, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "02/2016": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": -502175.56, "Otamendi": 0, "Magallanes": -70076.11, "Sarmiento": -46594.37, "Constitución": -220248.51, "Luro": 0}, "Julio": {"Rivadavia": 502175.56, "Otamendi": 0, "Magallanes": 70076.11, "Sarmiento": 46594.37, "Constitución": 220248.51, "Luro": 0}}, "05/2025": {"Abril": {"Rivadavia": 2025729.34, "Otamendi": 0, "Magallanes": 581770.41, "Sarmiento": 200212.24, "Constitución": 338685.52, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "06/2025": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 2818256.59, "Otamendi": 0, "Magallanes": 645342.78, "Sarmiento": 837484.04, "Constitución": 510559.28, "Luro": 25477.82}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "07/2025": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 1082228.58, "Otamendi": 0, "Magallanes": 496055.81, "Sarmiento": 225985.13, "Constitución": 236228.01, "Luro": 24140.37}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "08/2025": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 20523.45}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 58944.57, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 77195.19, "Luro": 0}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "09/2025": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0.0, "Sarmiento": 21664.8, "Constitución": 14636.92, "Luro": 0}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "10/2025": {"Abril": {"Rivadavia": 558945.71, "Otamendi": 10601.71, "Magallanes": 247740.4, "Sarmiento": 134804.28, "Constitución": 279490.44, "Luro": 47896.78}, "Mayo": {"Rivadavia": 2682.57, "Otamendi": 1888.0, "Magallanes": 24249.17, "Sarmiento": 24006.54, "Constitución": 28363.73, "Luro": 8529.67}, "Junio": {"Rivadavia": 132209.52, "Otamendi": 29699.24, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 76217.67}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "11/2025": {"Abril": {"Rivadavia": 900947.55, "Otamendi": 0, "Magallanes": 704765.47, "Sarmiento": 607581.89, "Constitución": 681251.0, "Luro": 0}, "Mayo": {"Rivadavia": 680086.96, "Otamendi": 31763.4, "Magallanes": 97516.86, "Sarmiento": 176039.87, "Constitución": 813242.11, "Luro": 121900.59}, "Junio": {"Rivadavia": 2722496.49, "Otamendi": 88418.71, "Magallanes": 436680.11, "Sarmiento": 675443.74, "Constitución": 1650294.57, "Luro": 39920.64}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "12/2025": {"Abril": {"Rivadavia": 16641521.27, "Otamendi": 1703320.11, "Magallanes": 4379229.14, "Sarmiento": 3422918.13, "Constitución": 2061190.02, "Luro": 1166115.99}, "Mayo": {"Rivadavia": 3721120.35, "Otamendi": 591710.38, "Magallanes": 438611.62, "Sarmiento": 943255.55, "Constitución": 1047847.64, "Luro": 177350.0}, "Junio": {"Rivadavia": 241471.26, "Otamendi": 0, "Magallanes": 37906.61, "Sarmiento": 36030.56, "Constitución": 894890.84, "Luro": 4203.34}, "Julio": {"Rivadavia": 445989.59, "Otamendi": 0, "Magallanes": 24989.85, "Sarmiento": 89380.36, "Constitución": 331971.87, "Luro": 37886.74}}, "01/2026": {"Abril": {"Rivadavia": 80332694.52, "Otamendi": 3370999.6, "Magallanes": 22482848.43, "Sarmiento": 31389618.86, "Constitución": 28615404.83, "Luro": 10323440.42}, "Mayo": {"Rivadavia": 12593854.66, "Otamendi": 1331175.11, "Magallanes": 226421.57, "Sarmiento": 412575.08, "Constitución": 290809.9, "Luro": 535560.24}, "Junio": {"Rivadavia": 5576284.29, "Otamendi": 339036.94, "Magallanes": 1965647.57, "Sarmiento": 738154.62, "Constitución": 1403973.58, "Luro": 417889.2}, "Julio": {"Rivadavia": 4772668.62, "Otamendi": 78890.41, "Magallanes": 1130893.45, "Sarmiento": 997310.64, "Constitución": 2501741.57, "Luro": 706583.29}}, "02/2026": {"Abril": {"Rivadavia": 60943640.41, "Otamendi": 2082721.32, "Magallanes": 7630286.71, "Sarmiento": 17692701.25, "Constitución": 20671944.02, "Luro": 4878573.32}, "Mayo": {"Rivadavia": 82956295.29, "Otamendi": 4280311.39, "Magallanes": 28272808.45, "Sarmiento": 30699608.4, "Constitución": 41594162.22, "Luro": 11865734.92}, "Junio": {"Rivadavia": 16068268.49, "Otamendi": 1350025.63, "Magallanes": 1246618.23, "Sarmiento": 1583099.38, "Constitución": 381312.82, "Luro": 917565.83}, "Julio": {"Rivadavia": 6990665.81, "Otamendi": 523643.03, "Magallanes": 2119805.71, "Sarmiento": 2378089.63, "Constitución": 4909482.26, "Luro": 391046.39}}, "03/2026": {"Abril": {"Rivadavia": 106206615.96, "Otamendi": 2944343.05, "Magallanes": 11986626.28, "Sarmiento": 7618324.82, "Constitución": 8364791.14, "Luro": 5364130.81}, "Mayo": {"Rivadavia": 67519396.33, "Otamendi": 2685984.6, "Magallanes": 6172538.43, "Sarmiento": 16942129.3, "Constitución": 15908830.86, "Luro": 4108615.54}, "Junio": {"Rivadavia": 105037800.44, "Otamendi": 4203312.74, "Magallanes": 25669014.65, "Sarmiento": 39787138.39, "Constitución": 40485383.86, "Luro": 13151529.83}, "Julio": {"Rivadavia": 20827104.41, "Otamendi": 2063865.47, "Magallanes": 2268553.3, "Sarmiento": 3912728.97, "Constitución": 5463006.32, "Luro": 1062143.91}}, "04/2026": {"Abril": {"Rivadavia": -10642.81, "Otamendi": 0, "Magallanes": -2013.38, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 117892533.18, "Otamendi": 3587981.36, "Magallanes": 13713255.44, "Sarmiento": 14324554.23, "Constitución": 9619675.12, "Luro": 6534901.0}, "Junio": {"Rivadavia": 57752852.04, "Otamendi": 2276934.15, "Magallanes": 7157673.11, "Sarmiento": 13095910.38, "Constitución": 13439012.29, "Luro": 3730192.26}, "Julio": {"Rivadavia": 98659155.19, "Otamendi": 4835911.0, "Magallanes": 25541135.38, "Sarmiento": 33388121.41, "Constitución": 34503372.63, "Luro": 9212172.06}}, "05/2026 (ajuste)": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": -137100.0, "Otamendi": 0, "Magallanes": -59340.0, "Sarmiento": -44100.0, "Constitución": -15300.0, "Luro": -40845.0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "05/2026": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 98793347.16, "Otamendi": 4470922.65, "Magallanes": 12047491.4, "Sarmiento": 8621754.81, "Constitución": 8288043.59, "Luro": 4833623.95}, "Julio": {"Rivadavia": 64572690.24, "Otamendi": 2580880.5, "Magallanes": 9339286.54, "Sarmiento": 19743184.52, "Constitución": 23380620.09, "Luro": 2496602.49}}, "06/2026": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": {"Rivadavia": 98519474.82, "Otamendi": 3573016.0, "Magallanes": 13767577.12, "Sarmiento": 6665441.31, "Constitución": 7356764.98, "Luro": 5988891.18}}, "06/2026 (ajuste)": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": -74480.0, "Otamendi": 0, "Magallanes": -27900.0, "Sarmiento": -72900.0, "Constitución": -18900.0, "Luro": -11700.0}, "Julio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "07/2026 (ajuste)": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": {"Rivadavia": -63940.0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}}, "07/2026": {"Abril": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Mayo": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Junio": {"Rivadavia": 0, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": 0, "Luro": 0}, "Julio": {"Rivadavia": -419164.28, "Otamendi": 0, "Magallanes": 0, "Sarmiento": 0, "Constitución": -8750.0, "Luro": 0}}}, "desc_by_sede": {"Abril": {"Rivadavia": {"Otros descuentos": -163194.24, "Retención Ganancias": -5209244.35, "Cuota Swiss Medical": -2100035.8, "Facturas EMSA": -7029021.58, "Porc. Admin. FABA": -1659103.8, "Porc. Admin. FABA Salud": -1065648.08, "Desc. Importe Deudor": -5393264.86, "Seguro Mala Praxis": -102874.0, "Der. Administrativo (neto)": -11310757.93}, "Otamendi": {"Otros descuentos": 2.59, "Retención Ganancias": -197673.01, "Ingresos Brutos 1.50%": -149262.3, "Porc. Admin. FABA": -90789.39, "Porc. Admin. FABA Salud": -57578.64, "Seguro Mala Praxis": -6616.0, "Desc. Importe Deudor": -294355.15, "Der. Administrativo (neto)": -397917.92}, "Magallanes": {"Otros descuentos": 1.51, "Retención Ganancias": -950219.23, "Porc. Admin. FABA": -408906.91, "Porc. Admin. FABA Salud": -259478.67, "Der. Administrativo (neto)": -1940217.11}, "Sarmiento": {"Otros descuentos": 1.15, "Retención Ganancias": -1193218.47, "Porc. Admin. FABA": -458051.62, "Porc. Admin. FABA Salud": -301166.48, "Der. Administrativo (neto)": -2409932.33}, "Constitución": {"Otros descuentos": 1.28, "Retención Ganancias": -1197315.01, "Ingresos Brutos 1.50%": -893913.52, "Porc. Admin. FABA": -433549.26, "Porc. Admin. FABA Salud": -281240.53, "Desc. Importe Deudor": -2494798.69, "Seguro Mala Praxis": -6616.0, "Der. Administrativo (neto)": -2506149.05}, "Luro": {"Retención Ganancias": -430405.23, "Ingresos Brutos 1.50%": -323811.47, "Porc. Admin. FABA": -196745.4, "Porc. Admin. FABA Salud": -123297.28, "Desc. Importe Deudor": -923135.3, "Der. Administrativo (neto)": -884707.15}}, "Mayo": {"Rivadavia": {"Otros descuentos": -196194.49, "Retención Ganancias": -5552172.36, "Cuota Swiss Medical": -2563523.38, "Facturas EMSA": -9194617.0, "Porc. Admin. FABA": -1771001.26, "Porc. Admin. FABA Salud": -1135086.11, "Seguro Mala Praxis": -102874.0, "Desc. Importe Deudor": -5421684.97, "Der. Administrativo (neto)": -12112845.06}, "Otamendi": {"Otros descuentos": 1.25, "Retención Ganancias": -244157.28, "Ingresos Brutos 1.50%": -184125.51, "Porc. Admin. FABA": -109487.29, "Porc. Admin. FABA Salud": -70582.38, "Seguro Mala Praxis": -6616.0, "Desc. Importe Deudor": -471255.28, "Der. Administrativo (neto)": -485992.04}, "Magallanes": {"Retención Ganancias": -962137.67, "Porc. Admin. FABA": -454818.91, "Porc. Admin. FABA Salud": -287454.22, "Der. Administrativo (neto)": -1933797.49}, "Sarmiento": {"Retención Ganancias": -1234192.33, "Porc. Admin. FABA": -414823.08, "Porc. Admin. FABA Salud": -274460.7, "Der. Administrativo (neto)": -2551837.92}, "Constitución": {"Retención Ganancias": -1346039.8, "Ingresos Brutos 1.50%": -1010537.4, "Porc. Admin. FABA": -535006.31, "Porc. Admin. FABA Salud": -355376.31, "Seguro Mala Praxis": -6616.0, "Desc. Importe Deudor": -2679751.62, "Der. Administrativo (neto)": -2703159.49}, "Luro": {"Retención Ganancias": -457515.99, "Ingresos Brutos 1.50%": -344144.54, "Porc. Admin. FABA": -212085.76, "Porc. Admin. FABA Salud": -135988.94, "Desc. Importe Deudor": -1001270.97, "Der. Administrativo (neto)": -919252.33}}, "Junio": {"Rivadavia": {"Otros descuentos": -172194.7, "Retención Ganancias": -5626094.9, "Cuota Swiss Medical": -2380986.17, "Facturas EMSA": -12356380.59, "Porc. Admin. FABA": -1960145.78, "Porc. Admin. FABA Salud": -1258762.14, "Desc. Importe Deudor": -6345820.03, "Seguro Mala Praxis": -102874.0, "Der. Administrativo (neto)": -12071455.96}, "Otamendi": {"Otros descuentos": 24001.02, "Retención Ganancias": -247189.04, "Ingresos Brutos 1.50%": -186399.33, "Porc. Admin. FABA": -107780.14, "Porc. Admin. FABA Salud": -69625.57, "Seguro Mala Praxis": -6616.0, "Desc. Importe Deudor": -583283.95, "Der. Administrativo (neto)": -507909.5}, "Magallanes": {"Otros descuentos": 24001.27, "Retención Ganancias": -978890.36, "Porc. Admin. FABA": -481117.09, "Porc. Admin. FABA Salud": -302947.51, "Der. Administrativo (neto)": -1959454.31}, "Sarmiento": {"Otros descuentos": 24000.43, "Retención Ganancias": -1274281.42, "Porc. Admin. FABA": -563730.51, "Porc. Admin. FABA Salud": -367244.28, "Der. Administrativo (neto)": -2509943.68}, "Constitución": {"Otros descuentos": 24001.91, "Retención Ganancias": -1315158.52, "Ingresos Brutos 1.50%": -978321.01, "Porc. Admin. FABA": -576638.55, "Porc. Admin. FABA Salud": -377865.15, "Seguro Mala Praxis": -6616.0, "Desc. Importe Deudor": -1187113.26, "Der. Administrativo (neto)": -2609550.82}, "Luro": {"Otros descuentos": 24001.08, "Retención Ganancias": -454778.69, "Ingresos Brutos 1.50%": -342091.57, "Porc. Admin. FABA": -218516.88, "Porc. Admin. FABA Salud": -139195.1, "Desc. Importe Deudor": -1123351.56, "Der. Administrativo (neto)": -911412.49}}, "Julio": {"Rivadavia": {"Otros descuentos": -522795.57, "Retención Ganancias": -5737612.61, "Cuota Swiss Medical": -2384455.76, "Facturas EMSA": -16614003.85, "Porc. Admin. FABA": -1941925.93, "Porc. Admin. FABA Salud": -1248602.17, "Desc. Importe Deudor": -5863454.3, "Seguro Mala Praxis": -129307.0, "Der. Administrativo (neto)": -12272950.79}, "Otamendi": {"Otros descuentos": -60683.14, "Retención Ganancias": -265444.78, "Ingresos Brutos 1.50%": -200091.13, "Porc. Admin. FABA": -123517.46, "Porc. Admin. FABA Salud": -79720.49, "Seguro Mala Praxis": -9698.0, "Desc. Importe Deudor": -515741.33, "Der. Administrativo (neto)": -527180.14}, "Magallanes": {"Otros descuentos": -60682.48, "Retención Ganancias": -1070671.54, "Porc. Admin. FABA": -483048.42, "Porc. Admin. FABA Salud": -305341.8, "Der. Administrativo (neto)": -2164687.53}, "Sarmiento": {"Otros descuentos": -60682.23, "Retención Ganancias": -1314424.56, "Porc. Admin. FABA": -504011.04, "Porc. Admin. FABA Salud": -331422.05, "Der. Administrativo (neto)": -2676296.24}, "Constitución": {"Otros descuentos": -57459.7, "Retención Ganancias": -1532807.84, "Ingresos Brutos 1.50%": -1147311.28, "Porc. Admin. FABA": -550737.72, "Porc. Admin. FABA Salud": -363408.73, "Seguro Mala Praxis": -9698.0, "Desc. Importe Deudor": -1047212.83, "Der. Administrativo (neto)": -3202986.59}, "Luro": {"Otros descuentos": 36001.3, "Retención Ganancias": -393676.85, "Ingresos Brutos 1.50%": -296265.18, "Facturas EMSA": -439569.04, "Porc. Admin. FABA": -194798.22, "Porc. Admin. FABA Salud": -123554.0, "Desc. Importe Deudor": -1383609.95, "Der. Administrativo (neto)": -786434.06}}}, "desc_groups": ["Der. Administrativo (neto)", "Facturas EMSA", "Retención Ganancias", "Desc. Importe Deudor", "Porc. Admin. FABA", "Cuota Swiss Medical", "Porc. Admin. FABA Salud", "Ingresos Brutos 1.50%", "Otros descuentos", "Seguro Mala Praxis"]};
+const MESES = DATA.meses;
+const SEDES = DATA.sedes;
+const SEDE_SHORT = {Rivadavia:'Rivad.',Otamendi:'Otam.',Magallanes:'Magall.',
+                    Sarmiento:'Sarm.',Constitución:'Const.',Luro:'Luro'};
+const CH = {};
+const GOLD='#C9A84C',GREEN='#2DD4A0',RED='#FF6B6B',BLUE='#5B8FE8';
+const MC = ['#C9A84C','#5B8FE8','#2DD4A0','#A78BFA','#FF8C42','#FF6B6B','#38BDF8','#F472B6','#34D399','#FB923C'];
+const GRID='rgba(255,255,255,.05)',TICK='#5a6080';
+const TICK_ST={color:TICK,font:{size:11}};
+
+const fmt=v=>{const a=Math.abs(v),s=v<0?'-':'';
+  if(a>=1e9)return s+'$'+(a/1e9).toFixed(2)+'B';
+  if(a>=1e6)return s+'$'+(a/1e6).toFixed(1)+'M';
+  if(a>=1e3)return s+'$'+(a/1e3).toFixed(0)+'K';
+  return s+'$'+a.toFixed(0);};
+const fmtN=v=>{const n=v<0,a=Math.abs(v);
+  return(n?'-':'')+'$'+a.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+const pct=(a,b)=>a===0?null:((b-a)/Math.abs(a)*100);
+const destroy=id=>{if(CH[id]){CH[id].destroy();delete CH[id];}};
+const TT={callbacks:{label:i=>` ${i.dataset.label}: ${fmtN(i.raw)}`}};
+
+/* ─── KPIs ────────────────────────────────────────────────── */
+function updateKPIs(){
+  const mes=document.getElementById('globalMes').value;
+  const t=DATA.by_mes_total[mes];
+  const idx=MESES.indexOf(mes);
+  const prev=idx>0?DATA.by_mes_total[MESES[idx-1]]:null;
+  const pctDesc=t.bruto?(Math.abs(t.desc)/t.bruto*100).toFixed(2):0;
+  const chgB=prev?pct(prev.bruto,t.bruto):null;
+  const chgL=prev?pct(prev.liq,t.liq):null;
+  const chgD=prev?pct(Math.abs(prev.desc)/prev.bruto,Math.abs(t.desc)/t.bruto):null;
+
+  const band=document.getElementById('alertBandResumen');
+  if(prev && chgD!==null && Math.abs(chgD)>8){
+    band.textContent=`⚠️  El % de descuento varió ${chgD>0?'+':''}${chgD.toFixed(1)}% vs ${MESES[idx-1]} — revisar composición.`;
+    band.classList.add('show');
+  } else band.classList.remove('show');
+
+  const items=[
+    {lbl:'Facturado Bruto', val:fmt(t.bruto), sub:mes+' 2026', chg:chgB, inv:false},
+    {lbl:'Total Descuentos',val:fmt(t.desc),  sub:pctDesc+'% del bruto', chg:chgD, inv:true, isDesc:true},
+    {lbl:'Liquidado',       val:fmt(t.liq),   sub:mes+' 2026', chg:chgL, inv:false},
+    {lbl:'Var. vs mes ant.',val:chgL!==null?(chgL>0?'+':'')+chgL.toFixed(1)+'%':'—',
+      sub:prev?'vs '+MESES[idx-1]:'primer mes', chg:null, inv:false, special:true, chgVal:chgL},
+  ];
+  document.getElementById('kpiBar').innerHTML=items.map(it=>{
+    let ch='';
+    if(it.chg!==null){
+      const up=it.inv?it.chg<0:it.chg>0;const ar=it.chg>0?'▲':'▼';
+      ch=`<div class="kpi-chg ${up?'up':'down'}">${ar} ${Math.abs(it.chg).toFixed(1)}% vs ${MESES[idx-1]}</div>`;
+    }
+    const vc=it.special?(it.chgVal>0?'color:var(--green)':'color:var(--red)'):'';
+    return`<div class="kpi"><div class="kpi-label">${it.lbl}</div>
+      <div class="kpi-value" style="${vc}">${it.val}</div>
+      <div class="kpi-sub">${it.sub}</div>${ch}</div>`;
+  }).join('');
+}
+
+/* ─── RESUMEN ─────────────────────────────────────────────── */
+function buildResumen(){
+  const mes=document.getElementById('globalMes').value;
+  const brutosArr=MESES.map(m=>DATA.by_mes_total[m].bruto);
+  const liqArr=MESES.map(m=>DATA.by_mes_total[m].liq);
+  const pctArr=MESES.map(m=>DATA.by_mes_total[m].bruto?
+    Math.abs(DATA.by_mes_total[m].desc)/DATA.by_mes_total[m].bruto*100:0);
+
+  destroy('chartEvol');
+  CH['chartEvol']=new Chart(document.getElementById('chartEvol'),{
+    data:{labels:MESES,datasets:[
+      {type:'bar',label:'Facturado Bruto',data:brutosArr,yAxisID:'y',
+       backgroundColor:MESES.map(m=>m===mes?GOLD+'dd':GOLD+'44'),
+       borderColor:'transparent',borderRadius:4,datalabels:{display:false}},
+      {type:'bar',label:'Liquidado',data:liqArr,yAxisID:'y',
+       backgroundColor:MESES.map(m=>m===mes?GREEN+'cc':GREEN+'33'),
+       borderColor:'transparent',borderRadius:4,datalabels:{display:false}},
+      {type:'line',label:'% Descuento',data:pctArr,yAxisID:'y2',
+       borderColor:RED,backgroundColor:'transparent',tension:.35,
+       pointRadius:5,pointBackgroundColor:RED,borderWidth:2,
+       datalabels:{display:true,formatter:v=>v.toFixed(1)+'%',
+         color:RED,font:{size:10,weight:'bold'},anchor:'end',align:'top',offset:4}},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{color:TICK,font:{size:11},boxWidth:8,padding:10}},
+        tooltip:{callbacks:{label:i=>i.datasetIndex<2?` ${i.dataset.label}: ${fmtN(i.raw)}`
+          :` % Desc.: ${i.raw.toFixed(2)}%`}},datalabels:{display:false}},
+      scales:{
+        x:{ticks:TICK_ST,grid:{display:false}},
+        y:{ticks:{...TICK_ST,callback:v=>fmt(v)},grid:{color:GRID}},
+        y2:{position:'right',ticks:{...TICK_ST,callback:v=>v.toFixed(1)+'%'},
+          grid:{display:false},min:0,max:22}
+      }
+    }
+  });
+
+  // Bruto por sede
+  destroy('chartResumenSede');
+  document.getElementById('resumenSedeSub').textContent=mes+' 2026 — % participación de cada sede';
+  const sedeVals=SEDES.map(s=>DATA.by_mes_sede[mes]?.[s]?.bruto||0);
+  const total=sedeVals.reduce((a,b)=>a+b,0);
+  CH['chartResumenSede']=new Chart(document.getElementById('chartResumenSede'),{type:'bar',
+    data:{labels:SEDES.map(s=>SEDE_SHORT[s]||s),datasets:[{
+      label:'Bruto',data:sedeVals,
+      backgroundColor:sedeVals.map((_,i)=>MC[i%MC.length]+'bb'),
+      borderColor:sedeVals.map((_,i)=>MC[i%MC.length]),borderWidth:1,borderRadius:4,
+      datalabels:{display:true,
+        formatter:(v,ctx)=>[fmt(v),(v/total*100).toFixed(1)+'%'],
+        color:'#e8eaf0',font:{size:9,weight:'bold'},anchor:'end',align:'start',offset:-2,textAlign:'center'}
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:32}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:i=>` ${fmtN(i.raw)} (${(i.raw/total*100).toFixed(1)}%)`}},
+        datalabels:{}},
+      scales:{x:{ticks:TICK_ST,grid:{display:false}},y:{ticks:{...TICK_ST,callback:v=>fmt(v)},grid:{color:GRID}}}}
+  });
+
+  // Donut descuentos
+  destroy('chartResumenDesc');
+  const gKeys=Object.keys(DATA.gastos_data).filter(g=>Math.abs(DATA.gastos_data[g][mes]||0)>100);
+  const gVals=gKeys.map(g=>Math.abs(DATA.gastos_data[g].pct[mes]||0));
+  CH['chartResumenDesc']=new Chart(document.getElementById('chartResumenDesc'),{type:'doughnut',
+    data:{labels:gKeys.map(g=>g.length>22?g.slice(0,20)+'…':g),
+      datasets:[{data:gVals,backgroundColor:MC,borderColor:'#1a1d27',borderWidth:2,
+        datalabels:{display:true,formatter:(v,ctx)=>v>0.25?v.toFixed(1)+'%':'',
+          color:'#e8eaf0',font:{size:9,weight:'bold'}}}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'right',labels:{color:TICK,font:{size:10},boxWidth:7,padding:4}},
+        tooltip:{callbacks:{label:i=>` ${i.label}: ${i.raw.toFixed(2)}% del bruto`}},datalabels:{}}}
+  });
+}
+
+/* ─── SEDES ───────────────────────────────────────────────── */
+function updateSedes(){
+  const sede=document.getElementById('sedesSede').value;
+  const mes=document.getElementById('sedesMes').value;
+  const meses=mes==='all'?MESES:[mes];
+  const sedes=sede==='all'?SEDES:[sede];
+  const getV=(m,s,k)=>DATA.by_mes_sede[m]?.[s]?.[k]||0;
+
+  // ── Gráfico evolución principal ──────────────────────────
+  destroy('chartSedesEvol');
+  document.getElementById('sedesEvolSub').textContent=
+    (sede==='all'?'Todas las sedes':sede)+' · '+
+    (mes==='all'?'Todos los meses':mes);
+
+  if(sede!=='all'){
+    // Una sede: evolución mes a mes con línea % descuento
+    const brutosS=MESES.map(m=>getV(m,sede,'bruto'));
+    const liqS   =MESES.map(m=>getV(m,sede,'liq'));
+    const pctS   =MESES.map(m=>getV(m,sede,'bruto')?
+      Math.abs(getV(m,sede,'desc'))/getV(m,sede,'bruto')*100:0);
+    CH['chartSedesEvol']=new Chart(document.getElementById('chartSedesEvol'),{
+      data:{labels:MESES,datasets:[
+        {type:'bar',label:'Bruto',data:brutosS,yAxisID:'y',
+          backgroundColor:GOLD+'88',borderColor:GOLD,borderWidth:1,borderRadius:4,datalabels:{display:false}},
+        {type:'bar',label:'Liquidado',data:liqS,yAxisID:'y',
+          backgroundColor:GREEN+'66',borderColor:GREEN,borderWidth:1,borderRadius:4,datalabels:{display:false}},
+        {type:'line',label:'% Descuento',data:pctS,yAxisID:'y2',
+          borderColor:RED,backgroundColor:'transparent',tension:.35,
+          pointRadius:5,pointBackgroundColor:RED,borderWidth:2,
+          datalabels:{display:true,formatter:v=>v.toFixed(1)+'%',
+            color:RED,font:{size:10,weight:'bold'},anchor:'end',align:'top',offset:4}},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'top',labels:{color:TICK,font:{size:11},boxWidth:8,padding:8}},
+          tooltip:{callbacks:{label:i=>i.datasetIndex<2?` ${i.dataset.label}: ${fmtN(i.raw)}`
+            :` % Desc.: ${i.raw.toFixed(2)}%`}},datalabels:{display:false}},
+        scales:{
+          x:{ticks:TICK_ST,grid:{display:false}},
+          y:{ticks:{...TICK_ST,callback:v=>fmt(v)},grid:{color:GRID}},
+          y2:{position:'right',ticks:{...TICK_ST,callback:v=>v.toFixed(1)+'%'},
+            grid:{display:false},min:0,max:25}
+        }}
+    });
+  } else {
+    // Todas las sedes: barras por sede (bruto) + puntos % desc
+    const sedeB=sedes.map(s=>meses.reduce((a,m)=>a+getV(m,s,'bruto'),0));
+    const sedeL=sedes.map(s=>meses.reduce((a,m)=>a+getV(m,s,'liq'),0));
+    const sedeD=sedes.map(s=>{
+      const b=meses.reduce((a,m)=>a+getV(m,s,'bruto'),0);
+      const d=meses.reduce((a,m)=>a+getV(m,s,'desc'),0);
+      return b?Math.abs(d)/b*100:0;
+    });
+    CH['chartSedesEvol']=new Chart(document.getElementById('chartSedesEvol'),{
+      data:{labels:sedes.map(s=>SEDE_SHORT[s]||s),datasets:[
+        {type:'bar',label:'Bruto',data:sedeB,yAxisID:'y',
+          backgroundColor:GOLD+'88',borderColor:GOLD,borderWidth:1,borderRadius:4,datalabels:{display:false}},
+        {type:'bar',label:'Liquidado',data:sedeL,yAxisID:'y',
+          backgroundColor:GREEN+'66',borderColor:GREEN,borderWidth:1,borderRadius:4,datalabels:{display:false}},
+        {type:'line',label:'% Descuento',data:sedeD,yAxisID:'y2',
+          borderColor:RED,backgroundColor:'transparent',tension:.1,
+          pointRadius:7,pointBackgroundColor:RED,showLine:false,
+          datalabels:{display:true,formatter:v=>v.toFixed(1)+'%',
+            color:RED,font:{size:10,weight:'bold'},anchor:'end',align:'top',offset:4}},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'top',labels:{color:TICK,font:{size:11},boxWidth:8,padding:8}},
+          tooltip:{callbacks:{label:i=>i.datasetIndex<2?` ${i.dataset.label}: ${fmtN(i.raw)}`
+            :` % Desc.: ${i.raw.toFixed(2)}%`}},datalabels:{display:false}},
+        scales:{
+          x:{ticks:TICK_ST,grid:{display:false}},
+          y:{ticks:{...TICK_ST,callback:v=>fmt(v)},grid:{color:GRID}},
+          y2:{position:'right',ticks:{...TICK_ST,callback:v=>v.toFixed(1)+'%'},
+            grid:{display:false},min:0,max:25}
+        }}
+    });
+  }
+
+  // ── Tabla compacta ───────────────────────────────────────
+  const rows=sedes.map(s=>{
+    const b=meses.reduce((a,m)=>a+getV(m,s,'bruto'),0);
+    const d=meses.reduce((a,m)=>a+getV(m,s,'desc'),0);
+    const l=b+d;
+    const pp=b?d/b*100:0;
+    const ppStr=`${pp.toFixed(1)}%`;
+    return`<tr><td>${s}</td>
+      <td class="gold">${fmtN(b)}</td>
+      <td class="neg">${fmtN(d)}</td>
+      <td class="neg" style="font-weight:700">${ppStr}</td>
+      <td class="pos">${fmtN(l)}</td></tr>`;
+  });
+  const tB=sedes.reduce((a,s)=>a+meses.reduce((x,m)=>x+getV(m,s,'bruto'),0),0);
+  const tD=sedes.reduce((a,s)=>a+meses.reduce((x,m)=>x+getV(m,s,'desc'),0),0);
+  document.getElementById('sedesTable').innerHTML=`
+    <thead><tr>
+      <th style="text-align:left">Sede</th>
+      <th>Bruto</th><th>Descuentos</th><th>% Desc.</th><th>Liquidado</th>
+    </tr></thead>
+    <tbody>${rows.join('')}</tbody>
+    <tfoot><tr class="total-row">
+      <td>TOTAL</td><td>${fmtN(tB)}</td>
+      <td class="neg">${fmtN(tD)}</td>
+      <td class="neg">${tB?(tD/tB*100).toFixed(1)+'%':'—'}</td>
+      <td>${fmtN(tB+tD)}</td>
+    </tr></tfoot>`;
+
+  // ── Panel WHY ────────────────────────────────────────────
+  buildWhyPanel(sede, mes);
+}
+
+function buildWhyPanel(sedeFilter, mesFilter){
+  // mesFilter puede ser un mes específico o 'all'
+  const meses       = mesFilter === 'all' ? MESES : [mesFilter];
+  const sedesShow   = sedeFilter === 'all' ? SEDES : [sedeFilter];
+  const mesLabel    = mesFilter === 'all' ? 'Todos los meses' : mesFilter;
+
+  document.getElementById('whySubtitle').textContent =
+    `Composición de descuentos — ${mesLabel}`;
+
+  const allGroups = DATA.desc_groups || [];
+
+  // Acumular desc_by_sede sumando los meses seleccionados
+  function getAccum(sede, grupo) {
+    return meses.reduce((a, m) => a + (DATA.desc_by_sede?.[m]?.[sede]?.[grupo] || 0), 0);
+  }
+  function getBruto(sede) {
+    return meses.reduce((a, m) => a + (DATA.by_mes_sede[m]?.[sede]?.bruto || 0), 0);
+  }
+
+  // Max pct across sedes/groups for bar scaling
+  let maxPct = 0;
+  sedesShow.forEach(s => {
+    const b = getBruto(s) || 1;
+    allGroups.forEach(g => {
+      const p = Math.abs(getAccum(s, g) / b * 100);
+      if (p > maxPct) maxPct = p;
+    });
+  });
+  maxPct = Math.max(maxPct, 1);
+
+  const gColors = {};
+  allGroups.forEach((g, i) => gColors[g] = MC[i % MC.length]);
+
+  const html2 = sedesShow.map(s => {
+    const b = getBruto(s) || 1;
+    const sedeDesc = {};
+    allGroups.forEach(g => { sedeDesc[g] = getAccum(s, g); });
+    const totalPct = Object.values(sedeDesc).reduce((a, v) => a + v, 0) / b * 100;
+
+    // Groups present in this sede (>0.01% of bruto)
+    const present = allGroups.filter(g => Math.abs(sedeDesc[g] || 0) > b * 0.0001);
+    // Groups absent here but present in other sedes
+    const absent  = allGroups.filter(g => !present.includes(g) &&
+      SEDES.some(s2 => {
+        const b2 = getBruto(s2) || 1;
+        return Math.abs(getAccum(s2, g) / b2 * 100) > 0.3;
+      }));
+    const sorted = present.sort((a, b_) =>
+      Math.abs(sedeDesc[b_] || 0) - Math.abs(sedeDesc[a] || 0));
+
+    // Color del % total según nivel
+    const absPct = Math.abs(totalPct);
+    const color  = absPct > 14 ? RED : absPct > 10 ? '#FF8C42' : absPct > 8 ? GOLD : GREEN;
+
+    const bars = sorted.map(g => {
+      const v = sedeDesc[g] || 0;
+      const p = Math.abs(v / b * 100);
+      const w = (p / maxPct * 100).toFixed(1);
+      return `<div class="why-row">
+        <span class="why-label" title="${g}">${g}</span>
+        <div class="why-bar-wrap">
+          <div class="why-bar-fill" style="width:${w}%;background:${gColors[g]}88"></div>
+        </div>
+        <span class="why-pct-val">${p.toFixed(1)}%</span>
+      </div>`;
+    }).join('');
+
+    const absentHtml = absent.length
+      ? `<div class="why-absent">Sin descuento: ${absent.map(g => g.replace('(neto)', '').trim()).join(', ')}</div>`
+      : '';
+
+    return `<div class="why-sede">
+      <div class="why-sede-header">
+        <span class="why-sede-name">${s}</span>
+        <span class="why-sede-pct" style="color:${color}">${Math.abs(totalPct).toFixed(1)}%</span>
+      </div>
+      <div class="why-bars">${bars}</div>
+      ${absentHtml}
+    </div>`;
+  }).join('');
+
+  document.getElementById('whyPanel').innerHTML = html2;
+}
+
+function updateOoss(){
+  const sede=document.getElementById('oossSede').value;
+  const mes=document.getElementById('oossMes').value;
+  const meses=mes==='all'?MESES:[mes];
+  let list=DATA.ooss_list.map(o=>{
+    let t=0;
+    meses.forEach(m=>{t+=sede==='all'?o[m]||0:o[m+'_sedes']?.[sede]||0;});
+    return{nombre:o.nombre,total:t};
+  }).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
+  const grand=list.reduce((a,x)=>a+x.total,0);
+  let cum=0,cut=list.length-1;
+  for(let i=0;i<list.length;i++){cum+=list[i].total;if(cum>=grand*.8){cut=i;break;}}
+  const pl=list.slice(0,Math.max(cut+1,5));
+  document.getElementById('oossParetSub').textContent=
+    `${pl.length} OOSS concentran el 80% · Total: ${fmtN(grand)}`;
+  const h=pl.length*34+80;
+  document.getElementById('oossChartWrap').style.height=h+'px';
+  destroy('chartOoss');
+  CH['chartOoss']=new Chart(document.getElementById('chartOoss'),{type:'bar',
+    data:{labels:pl.map(x=>x.nombre.length>38?x.nombre.slice(0,36)+'…':x.nombre),
+      datasets:[{label:'Facturado',data:pl.map(x=>x.total),
+        backgroundColor:pl.map((_,i)=>i<=cut?GOLD+'cc':GOLD+'40'),
+        borderColor:GOLD,borderWidth:1,borderRadius:3,
+        datalabels:{display:true,formatter:(v)=>(v/grand*100).toFixed(1)+'%',
+          color:'#e8eaf0',font:{size:9},anchor:'end',align:'right',offset:4}
+      }]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{right:40}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:i=>` ${fmtN(i.raw)} (${(i.raw/grand*100).toFixed(1)}%)`}},
+        datalabels:{}},
+      scales:{x:{ticks:{...TICK_ST,callback:v=>fmt(v)},grid:{color:GRID}},
+              y:{ticks:{color:'#c8cad4',font:{size:11}},grid:{display:false}}}}
+  });
+  let cumP=0;
+  const rows=list.slice(0,30).map((x,i)=>{
+    cumP+=x.total/grand*100;
+    return`<tr><td>${i+1}. ${x.nombre}</td>
+      <td class="gold">${fmtN(x.total)}</td>
+      <td class="muted">${(x.total/grand*100).toFixed(1)}%</td>
+      <td class="muted">${Math.min(cumP,100).toFixed(1)}%</td>
+      <td><div class="pareto-bar"><div class="pareto-fill" style="width:${Math.min(cumP,100)}%"></div></div></td></tr>`;
+  });
+  document.getElementById('oossTable').innerHTML=`
+    <thead><tr><th>Obra Social</th><th>Total</th><th>% total</th><th>% acum.</th><th style="min-width:80px">Pareto</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>`;
+}
+
+/* ─── DESCUENTOS ──────────────────────────────────────────── */
+function buildDescuentos(){
+  const gKeys=Object.keys(DATA.gastos_data);
+  const colors=MC;
+  destroy('chartDescPct');
+  CH['chartDescPct']=new Chart(document.getElementById('chartDescPct'),{type:'line',
+    data:{labels:MESES,datasets:gKeys.map((g,i)=>({
+      label:g,data:MESES.map(m=>Math.abs(DATA.gastos_data[g].pct[m]||0)),
+      borderColor:colors[i%colors.length],backgroundColor:'transparent',
+      tension:.35,pointRadius:4,pointBackgroundColor:colors[i%colors.length],
+      borderWidth:2,datalabels:{display:false}
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'right',labels:{color:TICK,font:{size:10},boxWidth:7,padding:5}},
+        tooltip:{callbacks:{label:i=>` ${i.dataset.label}: ${i.raw.toFixed(2)}%`}},
+        datalabels:{display:false}},
+      scales:{x:{ticks:TICK_ST,grid:{display:false}},
+        y:{ticks:{...TICK_ST,callback:v=>v.toFixed(1)+'%'},grid:{color:GRID},
+          title:{display:true,text:'% sobre Facturado Bruto',color:TICK,font:{size:10}}}}}
+  });
+  const h=gKeys.length*42+80;
+  document.getElementById('descAbsWrap').style.height=h+'px';
+  destroy('chartDescAbs');
+  CH['chartDescAbs']=new Chart(document.getElementById('chartDescAbs'),{type:'bar',
+    data:{labels:gKeys.map(g=>g.length>30?g.slice(0,28)+'…':g),
+      datasets:MESES.map((m,i)=>({label:m,data:gKeys.map(g=>DATA.gastos_data[g][m]||0),
+        backgroundColor:MC[i]+'99',borderColor:MC[i],borderWidth:1,borderRadius:3,
+        datalabels:{display:false}}))},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{color:TICK,font:{size:11},boxWidth:8}},
+        tooltip:TT,datalabels:{display:false}},
+      scales:{x:{ticks:{...TICK_ST,callback:v=>fmt(v)},grid:{color:GRID}},
+              y:{ticks:{color:'#c8cad4',font:{size:11}},grid:{display:false}}}}
+  });
+  const rows=gKeys.map(g=>{
+    const nota=g.includes('neto')?'<span style="font-size:9px;color:var(--text2)"> (neto devol.)</span>':'';
+    return`<tr><td>${g}${nota}</td>${MESES.map(m=>`
+      <td class="neg">${DATA.gastos_data[g][m]?fmtN(DATA.gastos_data[g][m]):'—'}</td>
+      <td class="muted">${Math.abs(DATA.gastos_data[g].pct[m]||0).toFixed(2)}%</td>`).join('')}</tr>`;
+  });
+  document.getElementById('descTable').innerHTML=`
+    <thead>
+      <tr><th>Concepto</th>${MESES.map(m=>`<th colspan="2" style="text-align:center">${m}</th>`).join('')}</tr>
+      <tr><th></th>${MESES.map(()=>'<th>Monto</th><th>% bruto</th>').join('')}</tr>
+    </thead><tbody>${rows.join('')}</tbody>`;
+}
+
+/* ─── PERIODOS ─────────────────────────────────────────────── */
+function updatePeriodos(){
+  const mes   = document.getElementById('perMes').value;
+  const vista = document.getElementById('perVista').value;
+  const meses = mes === 'all' ? MESES : [mes];
+  const pp    = DATA.periodos_prestacion;
+
+  const allPers = Object.keys(pp).map(per => ({
+    per,
+    total: meses.reduce((a,m) => a + SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0), 0),
+    byMes: Object.fromEntries(meses.map(m => [m, SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0)])),
+  })).filter(x => Math.abs(x.total) > 100)
+     .sort((a,b) => period_num(a.per) - period_num(b.per));
+
+  const stickyTh = 'position:sticky;left:0;background:var(--bg2);z-index:2;white-space:nowrap';
+  const stickyTd = 'position:sticky;left:0;background:var(--bg2);z-index:1;white-space:nowrap';
+  const stickyTdBold = 'position:sticky;left:0;background:var(--bg3);z-index:1;font-weight:700;color:var(--gold)';
+  const sepBorder = 'border-left:1px solid var(--border2)';
+
+  if (vista === 'total') {
+    let th = `<thead><tr>
+      <th style="${stickyTh};min-width:120px">Período prest.</th>`;
+    meses.forEach(m => {
+      th += `<th colspan="2" style="text-align:center;${sepBorder};white-space:nowrap">${m}</th>`;
+    });
+    th += `</tr><tr><th style="${stickyTh}"></th>`;
+    meses.forEach(() => {
+      th += `<th style="${sepBorder}">Monto</th><th>% liq.</th>`;
+    });
+    th += '</tr></thead>';
+
+    let tb = '<tbody>';
+    allPers.forEach(x => {
+      tb += `<tr><td style="${stickyTd};font-weight:500">${x.per}</td>`;
+      meses.forEach(m => {
+        const v = x.byMes[m] || 0;
+        const liqMes = DATA.by_mes_total[m]?.liq || 1;
+        tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
+        tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
+      });
+      tb += '</tr>';
+    });
+    // Totals row
+    tb += `<tr class="total-row"><td style="${stickyTdBold}">TOTAL</td>`;
+    meses.forEach(m => {
+      const tot = allPers.reduce((a,x) => a + (x.byMes[m]||0), 0);
+      const liqMes = DATA.by_mes_total[m]?.liq || 1;
+      tb += `<td class="gold" style="${sepBorder};white-space:nowrap">${fmtN(tot)}</td>`;
+      tb += `<td class="muted" style="white-space:nowrap">${(tot/liqMes*100).toFixed(2)}%</td>`;
+    });
+    tb += '</tr></tbody>';
+
+    document.getElementById('perTable').innerHTML = th + tb;
+
+  } else {
+    // Por sede
+    let th = `<thead><tr>
+      <th style="${stickyTh};min-width:180px">Período / Sede</th>`;
+    meses.forEach(m => {
+      th += `<th colspan="2" style="text-align:center;${sepBorder};white-space:nowrap">${m}</th>`;
+    });
+    th += `</tr><tr><th style="${stickyTh}"></th>`;
+    meses.forEach(() => {
+      th += `<th style="${sepBorder}">Monto</th><th>% liq.</th>`;
+    });
+    th += '</tr></thead>';
+
+    let tb = '<tbody>';
+    allPers.forEach(x => {
+      tb += `<tr style="background:var(--bg3)">
+        <td colspan="${1 + meses.length*2}" style="font-weight:600;color:var(--gold);padding:6px 9px;white-space:nowrap">${x.per}</td></tr>`;
+      SEDES.forEach(s => {
+        if (!meses.some(m => Math.abs(pp[x.per][m]?.[s]||0) > 0)) return;
+        tb += `<tr><td style="${stickyTd};padding-left:20px;color:var(--text2)">${s}</td>`;
+        meses.forEach(m => {
+          const v = pp[x.per][m]?.[s] || 0;
+          const liqMes = DATA.by_mes_total[m]?.liq || 1;
+          tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
+          tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
+        });
+        tb += '</tr>';
+      });
+    });
+    tb += '</tbody>';
+    document.getElementById('perTable').innerHTML = th + tb;
+  }
+}
+
+
+function period_num(p){const m=p.match(/(\d{2})\/(\d{4})/);return m?parseInt(m[2])*100+parseInt(m[1]):999999;}
+
+/* ─── Tab switching ───────────────────────────────────────── */
+const TABS=['resumen','sedes','ooss','periodos'];
+function showTab(name){
+  TABS.forEach(t=>{document.getElementById('panel-'+t).classList.toggle('active',t===name);});
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TABS[i]===name));
+  if(name==='resumen') buildResumen();
+  if(name==='sedes')   updateSedes();
+  if(name==='ooss')    updateOoss();
+  if(name==='descuentos') buildDescuentos();
+  if(name==='periodos') updatePeriodos();
+}
+
+function updateAll(){updateKPIs();buildResumen();}
+
+/* ─── Init ────────────────────────────────────────────────── */
+function init(){
+  ['sedesSede','oossSede'].forEach(id=>{
+    const s=document.getElementById(id);
+    SEDES.forEach(x=>{const o=document.createElement('option');o.value=x;o.textContent=x;s.appendChild(o);});
+  });
+  ['sedesMes','oossMes','perMes'].forEach(id=>{
+    const s=document.getElementById(id);
+    MESES.forEach(x=>{const o=document.createElement('option');o.value=x;o.textContent=x;s.appendChild(o);});
+  });
+  updateKPIs();
+  buildResumen();
+}
+init();
+</script>
+</body>
+</html>

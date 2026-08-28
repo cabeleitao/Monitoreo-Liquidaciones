@@ -109,6 +109,15 @@
   }
   .seg-select:focus{outline:1px solid var(--amber);}
 
+  .btn-detalle{
+    display:inline-flex;align-items:center;gap:5px;
+    background:var(--amber);color:#1A1306;
+    font-family:'Space Grotesk',sans-serif;font-size:12.5px;font-weight:600;
+    padding:6px 14px;border-radius:8px;text-decoration:none;
+    white-space:nowrap;transition:opacity .15s;
+  }
+  .btn-detalle:hover{opacity:.85;}
+
   .chart-box{height:260px;position:relative;}
 
   /* ---------- ranking ---------- */
@@ -178,7 +187,12 @@
 
   <header>
     <div class="title-block">
-      <h1>Monitoreo de Liquidaciones</h1>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <h1>Monitoreo de Liquidaciones</h1>
+        <a href="./Dashboard_Liquidaciones_CB_v5__1_.html" target="_blank" class="btn-detalle">
+          Detalle de Liquidaciones ↗
+        </a>
+      </div>
       <p id="subtitle">7 sedes · liquidación quincenal desde 01/2022</p>
     </div>
     <div class="live-badge">
