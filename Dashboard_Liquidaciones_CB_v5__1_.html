@@ -715,6 +715,14 @@ function updatePeriodos(){
   })).filter(x => Math.abs(x.total) > 100)
      .sort((a,b) => period_num(a.per) - period_num(b.per));
 
+  // Denominador correcto por mes: suma real de todos los períodos de ese mes
+  // (coincide con bruto pero evita diferencias de redondeo con ajustes negativos)
+  const mesDenominator = {};
+  meses.forEach(m => {
+    mesDenominator[m] = Object.keys(pp).reduce((a, per) =>
+      a + SEDES.reduce((b,s) => b + (pp[per][m]?.[s]||0), 0), 0) || 1;
+  });
+
   const stickyTh = 'position:sticky;left:0;background:var(--bg2);z-index:2;white-space:nowrap';
   const stickyTd = 'position:sticky;left:0;background:var(--bg2);z-index:1;white-space:nowrap';
   const stickyTdBold = 'position:sticky;left:0;background:var(--bg3);z-index:1;font-weight:700;color:var(--gold)';
@@ -737,7 +745,7 @@ function updatePeriodos(){
       tb += `<tr><td style="${stickyTd};font-weight:500">${x.per}</td>`;
       meses.forEach(m => {
         const v = x.byMes[m] || 0;
-        const liqMes = DATA.by_mes_total[m]?.bruto || 1;
+        const liqMes = mesDenominator[m] || DATA.by_mes_total[m]?.bruto || 1;
         tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
         tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
       });
@@ -747,7 +755,7 @@ function updatePeriodos(){
     tb += `<tr class="total-row"><td style="${stickyTdBold}">TOTAL</td>`;
     meses.forEach(m => {
       const tot = allPers.reduce((a,x) => a + (x.byMes[m]||0), 0);
-      const liqMes = DATA.by_mes_total[m]?.bruto || 1;
+      const liqMes = mesDenominator[m] || DATA.by_mes_total[m]?.bruto || 1;
       tb += `<td class="gold" style="${sepBorder};white-space:nowrap">${fmtN(tot)}</td>`;
       tb += `<td class="muted" style="white-space:nowrap">${(tot/liqMes*100).toFixed(2)}%</td>`;
     });
@@ -777,7 +785,7 @@ function updatePeriodos(){
         tb += `<tr><td style="${stickyTd};padding-left:20px;color:var(--text2)">${s}</td>`;
         meses.forEach(m => {
           const v = pp[x.per][m]?.[s] || 0;
-          const liqMes = DATA.by_mes_total[m]?.bruto || 1;
+          const liqMes = mesDenominator[m] || DATA.by_mes_total[m]?.bruto || 1;
           tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
           tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
         });
