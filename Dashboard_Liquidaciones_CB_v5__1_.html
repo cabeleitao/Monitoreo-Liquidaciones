@@ -170,8 +170,8 @@ body{background:var(--bg);color:var(--text);
     <select class="sel" id="globalYear"><option value="2026">2026</option></select></div>
   <div class="sel-group"><span class="sel-label">Mes</span>
     <select class="sel" id="globalMes" onchange="updateAll()">
-      <option value="Julio">Julio</option>
-        <option value="Agosto">Agosto</option><option value="Junio">Junio</option>
+      <option value="Agosto" selected>Agosto</option>
+        <option value="Julio">Julio</option><option value="Junio">Junio</option>
       <option value="Mayo">Mayo</option><option value="Abril">Abril</option>
     </select></div>
 </div>
@@ -203,7 +203,7 @@ body{background:var(--bg);color:var(--text);
         <span class="li"><span class="ld" style="background:#FF6B6B;border-radius:50%"></span>% Desc. (eje der.)</span>
       </div>
     </div>
-    <div class="cw" style="height:290px"><canvas id="chartEvol"></canvas></div>
+    <div class="cw" style="height:240px"><canvas id="chartEvol"></canvas></div>
   </div>
   <div class="grid2">
     <div class="card">
@@ -304,9 +304,9 @@ body{background:var(--bg);color:var(--text);
         <option value="sede">Por sede</option>
       </select></div>
   </div>
-  <div class="card" style="overflow-x:auto">
+  <div class="card" style="overflow-x:scroll;padding-bottom:8px">
       <div class="card-title" style="margin-bottom:12px">Detalle de períodos</div>
-    <table class="dtable" id="perTable"></table>
+    <table class="dtable" id="perTable" style="min-width:900px"></table>
   </div>
 </div>
 
@@ -408,10 +408,10 @@ function buildResumen(){
     data:{labels:MESES,datasets:[
       {type:'bar',label:'Facturado Bruto',data:brutosArr,yAxisID:'y',
        backgroundColor:MESES.map(m=>m===mes?GOLD+'dd':GOLD+'44'),
-       borderColor:'transparent',borderRadius:4,datalabels:{display:false}},
+       borderColor:'transparent',borderRadius:4,maxBarThickness:60,datalabels:{display:false}},
       {type:'bar',label:'Liquidado',data:liqArr,yAxisID:'y',
        backgroundColor:MESES.map(m=>m===mes?GREEN+'cc':GREEN+'33'),
-       borderColor:'transparent',borderRadius:4,datalabels:{display:false}},
+       borderColor:'transparent',borderRadius:4,maxBarThickness:60,datalabels:{display:false}},
       {type:'line',label:'% Descuento',data:pctArr,yAxisID:'y2',
        borderColor:RED,backgroundColor:'transparent',tension:.35,
        pointRadius:5,pointBackgroundColor:RED,borderWidth:2,
