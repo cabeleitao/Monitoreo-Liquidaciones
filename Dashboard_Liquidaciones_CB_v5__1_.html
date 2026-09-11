@@ -192,7 +192,7 @@ body{background:var(--bg);color:var(--text);
 
 <!-- ── RESUMEN ──────────────────────────────────────────── -->
 <div class="tab-panel active" id="panel-resumen">
-  <div id="alertBandResumen" class="alert-band"></div>
+  
   <div class="card">
     <div class="card-header">
       <div><div class="card-title">Evolución: Bruto vs Liquidado · % Descuento</div>
@@ -369,11 +369,7 @@ function updateKPIs(){
   const chgL=prev?pct(prev.liq,t.liq):null;
   const chgD=prev?pct(Math.abs(prev.desc)/prev.bruto,Math.abs(t.desc)/t.bruto):null;
 
-  const band=document.getElementById('alertBandResumen');
-  if(prev && chgD!==null && Math.abs(chgD)>8){
-    band.textContent=`⚠️  El % de descuento varió ${chgD>0?'+':''}${chgD.toFixed(1)}% vs ${MESES[idx-1]} — revisar composición.`;
-    band.classList.add('show');
-  } else band.classList.remove('show');
+  // alerta eliminada
 
   const items=[
     {lbl:'Facturado Bruto', val:fmt(t.bruto), sub:mes+' 2026', chg:chgB, inv:false},
@@ -636,7 +632,7 @@ function buildWhyPanel(sedeFilter, mesFilter){
       const w = (p / maxPct * 100).toFixed(1);
       const isDeudor = g === 'Desc. Importe Deudor';
       const deudorLink = isDeudor
-        ? ` onclick="openDeudorPopup('${s}','${mes}')" title="Ver detalle por matrícula"`
+        ? ` onclick="openDeudorPopup('${s}','${mesFilter}')" title="Ver detalle por matrícula"`
         : '';
       const labelClass = isDeudor ? ' class="why-row-link"' : '';
       return `<div class="why-row">
