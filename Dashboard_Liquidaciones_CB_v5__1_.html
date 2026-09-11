@@ -176,7 +176,7 @@ body{background:var(--bg);color:var(--text);
     </select></div>
 </div>
 <div style="display:flex;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-  <label class="emsa-toggle"><input type="checkbox" id="emsaToggle" onchange="updateKPIs()"> Excluir Facturas EMSA <span class="emsa-note" id="emsaNota"></span></label>
+  <label class="emsa-toggle"><input type="checkbox" id="emsaToggle" onchange="updateAll()"> Excluir Facturas EMSA <span class="emsa-note" id="emsaNota"></span></label>
 </div>
 <div class="kpi-bar" id="kpiBar"></div>
 
@@ -396,8 +396,12 @@ function buildResumen(){
   const mes=document.getElementById('globalMes').value;
   const brutosArr=MESES.map(m=>DATA.by_mes_total[m].bruto);
   const liqArr=MESES.map(m=>DATA.by_mes_total[m].liq);
-  const pctArr=MESES.map(m=>DATA.by_mes_total[m].bruto?
-    Math.abs(DATA.by_mes_total[m].desc)/DATA.by_mes_total[m].bruto*100:0);
+  const emsaExcl=document.getElementById('emsaToggle')?.checked;
+  const pctArr=MESES.map(m=>{
+    const t=DATA.by_mes_total[m]; if(!t||!t.bruto) return 0;
+    const emsa=emsaExcl?(DATA.gastos_data?.['Facturas EMSA']?.[m]||0):0;
+    return Math.abs(t.desc-emsa)/t.bruto*100;
+  });
 
   destroy('chartEvol');
   CH['chartEvol']=new Chart(document.getElementById('chartEvol'),{
@@ -585,6 +589,8 @@ function buildWhyPanel(sedeFilter, mesFilter){
 
   // Acumular desc_by_sede sumando los meses seleccionados
   function getAccum(sede, grupo) {
+    const excl=document.getElementById('emsaToggle')?.checked;
+    if(excl && grupo==='Facturas EMSA') return 0;
     return meses.reduce((a, m) => a + (DATA.desc_by_sede?.[m]?.[sede]?.[grupo] || 0), 0);
   }
   function getBruto(sede) {
@@ -604,6 +610,7 @@ function buildWhyPanel(sedeFilter, mesFilter){
 
   const gColors = {};
   allGroups.forEach((g, i) => gColors[g] = MC[i % MC.length]);
+  gColors['Desc. Importe Deudor'] = '#A78BFA'; // color fijo violeta para Saldo Deudor
 
   const html2 = sedesShow.map(s => {
     const b = getBruto(s) || 1;
@@ -636,7 +643,7 @@ function buildWhyPanel(sedeFilter, mesFilter){
         : '';
       const labelClass = isDeudor ? ' class="why-row-link"' : '';
       return `<div class="why-row">
-        <span${labelClass} title="${g}"${deudorLink}>${isDeudor ? '🔍 ' : ''}${g}</span>
+        <span${labelClass} title="${g}"${deudorLink}>${g}</span>
         <div class="why-bar-wrap">
           <div class="why-bar-fill" style="width:${w}%;background:${gColors[g]}88"></div>
         </div>
@@ -861,6 +868,8 @@ function showTab(name){
 function updateAll(){updateKPIs();buildResumen();}
 
 /* ─── Init ────────────────────────────────────────────────── */
+const MATRICULA_NAMES = {"8264B1": "Fares T. Gustavo", "8719B1": "Fares T. Felix", "8848B1": "Sibechi", "6902B1": "Guerreiro Leonor", "4579B1": "Keller", "6354B1": "Elorza", "6654B1": "Gagey Dolores", "9947B1": "Lab. Otamendi", "2719B1": "Fares T. Felix", "0264B1": "Fares T. Gustavo", "264B1": "Fares T. Gustavo", "6869B1": "Pijuan Maria Carla", "8998B1": "Lopez Lodi G.", "0848B1": "Sibechi", "848B1": "Sibechi"};
+
 function init(){
   ['sedesSede','oossSede'].forEach(id=>{
     const s=document.getElementById(id);
@@ -895,9 +904,10 @@ function openDeudorPopup(sede, mesFilter){
     document.getElementById('deudorPopupBody').innerHTML =
       '<div style="color:var(--text2);font-size:12px;padding:8px 0">Detalle por matrícula no disponible para este período.</div>';
   } else {
-    const rows = entries.map(([mat,v]) =>
-      `<tr><td>${mat}</td><td>${fmtN(v)}</td></tr>`
-    ).join('');
+    const rows = entries.map(([mat,v]) => {
+      const nombre = MATRICULA_NAMES[mat.toUpperCase()] || MATRICULA_NAMES[mat] || '';
+      return `<tr><td>${mat}${nombre?' — <span style="color:var(--text2);font-size:11px">'+nombre+'</span>':''}</td><td>${fmtN(v)}</td></tr>`;
+    }).join('');
     document.getElementById('deudorPopupBody').innerHTML = `
       <table class="popup-table">
         <thead><tr><th>Matrícula</th><th style="text-align:right">Importe</th></tr></thead>
