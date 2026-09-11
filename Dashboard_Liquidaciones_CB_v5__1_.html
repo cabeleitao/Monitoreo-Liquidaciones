@@ -596,6 +596,10 @@ function buildWhyPanel(sedeFilter, mesFilter){
   function getBruto(sede) {
     return meses.reduce((a, m) => a + (DATA.by_mes_sede[m]?.[sede]?.bruto || 0), 0);
   }
+  function getDescReal(sede) {
+    // desc real = suma de desc de by_mes_sede (misma fuente que tabla Detalle numérico)
+    return meses.reduce((a, m) => a + (DATA.by_mes_sede[m]?.[sede]?.desc || 0), 0);
+  }
 
   // Max pct across sedes/groups for bar scaling
   let maxPct = 0;
@@ -616,7 +620,10 @@ function buildWhyPanel(sedeFilter, mesFilter){
     const b = getBruto(s) || 1;
     const sedeDesc = {};
     allGroups.forEach(g => { sedeDesc[g] = getAccum(s, g); });
-    const totalPct = Object.values(sedeDesc).reduce((a, v) => a + v, 0) / b * 100;
+    const descReal = getDescReal(s);
+    const totalPct = b > 0 ? descReal / b * 100 : 0;
+    // totalPctCats: solo para escalar las barras dentro del panel
+    const totalPctCats = Object.values(sedeDesc).reduce((a, v) => a + v, 0) / b * 100;
 
     // Groups present in this sede (>0.01% of bruto)
     const present = allGroups.filter(g => Math.abs(sedeDesc[g] || 0) > b * 0.0001);
@@ -636,7 +643,7 @@ function buildWhyPanel(sedeFilter, mesFilter){
     const bars = sorted.map(g => {
       const v = sedeDesc[g] || 0;
       const p = Math.abs(v / b * 100);
-      const w = (p / maxPct * 100).toFixed(1);
+      const w = (Math.abs(totalPct) > 0 ? p / Math.abs(totalPct) * 100 : 0).toFixed(1);
       const isDeudor = g === 'Desc. Importe Deudor';
       const deudorLink = isDeudor
         ? ` onclick="openDeudorPopup('${s}','${mesFilter}')" title="Ver detalle por matrícula"`
