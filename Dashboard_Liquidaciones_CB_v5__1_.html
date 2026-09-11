@@ -175,6 +175,9 @@ body{background:var(--bg);color:var(--text);
       <option value="Mayo">Mayo</option><option value="Abril">Abril</option>
     </select></div>
 </div>
+<div style="display:flex;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+  <label class="emsa-toggle"><input type="checkbox" id="emsaToggle" onchange="updateKPIs()"> Excluir Facturas EMSA <span class="emsa-note" id="emsaNota"></span></label>
+</div>
 <div class="kpi-bar" id="kpiBar"></div>
 
 <div class="tabs-bar">
@@ -360,8 +363,8 @@ function updateKPIs(){
   const tLiqAdj=t.bruto+tDescAdj;
   const pctDesc=t.bruto?(Math.abs(tDescAdj)/t.bruto*100).toFixed(2):0;
   const emsaNota=document.getElementById('emsaNota');
-  if(emsaOff!==0){emsaNota.style.display='inline';emsaNota.textContent='(+'+fmtN(-emsaOff)+')';}
-  else emsaNota.style.display='none';
+  if(emsaOff!==0){if(emsaNota)emsaNota.style.display='inline';if(emsaNota)emsaNota.textContent='(+'+fmtN(-emsaOff)+')';}
+  else if(emsaNota)emsaNota.style.display='none';
   const chgB=prev?pct(prev.bruto,t.bruto):null;
   const chgL=prev?pct(prev.liq,t.liq):null;
   const chgD=prev?pct(Math.abs(prev.desc)/prev.bruto,Math.abs(t.desc)/t.bruto):null;
