@@ -594,8 +594,8 @@ function buildWhyPanel(sedeFilter, mesFilter){
   function getDescReal(sede) {
     const d = meses.reduce((a, m) => a + (DATA.by_mes_sede[m]?.[sede]?.desc || 0), 0);
     if(!emsaExcluded) return d;
-    const emsa = meses.reduce((a, m) => a + (DATA.gastos_data?.['Facturas EMSA']?.[m] || 0), 0);
-    // emsa is negative, subtracting it makes desc less negative
+    // Usar EMSA específico de la sede (no el total global)
+    const emsa = meses.reduce((a, m) => a + (DATA.desc_by_sede?.[m]?.[sede]?.['Facturas EMSA'] || 0), 0);
     return d - emsa;
   }
 
