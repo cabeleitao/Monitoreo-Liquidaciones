@@ -604,9 +604,7 @@ function buildWhyPanel(sedeFilter, mesFilter){
   sedesShow.forEach(s => {
     const b = getBruto(s) || 1;
     allGroups.forEach(g => {
-      const rawAmt = sedeDescRaw[g] || 0;
-      const dispAmt = (g==='Facturas EMSA'&&emsaExcluded) ? rawAmt : (sedeDesc[g]||0);
-      const p = Math.abs(dispAmt / b * 100);
+      const p = Math.abs(sedeDesc[g] || 0) / b * 100;
       if (p > maxPct) maxPct = p;
     });
   });
@@ -646,8 +644,10 @@ function buildWhyPanel(sedeFilter, mesFilter){
     const color  = absPct > 14 ? RED : absPct > 10 ? '#FF8C42' : absPct > 8 ? GOLD : GREEN;
 
     const bars = sorted.map(g => {
-      const v = sedeDesc[g] || 0;
-      const p = Math.abs(v / b * 100);
+      const rawAmt = sedeDescRaw[g] || 0;
+      const displayAmt = (g==='Facturas EMSA'&&emsaExcluded) ? rawAmt : (sedeDesc[g]||0);
+      const v = displayAmt;
+      const p = Math.abs(displayAmt / b * 100);
       const w = (Math.abs(totalPct) > 0 ? p / Math.abs(totalPct) * 100 : 0).toFixed(1);
       const isDeudor = g === 'Desc. Importe Deudor';
       const isEmsa   = g === 'Facturas EMSA';
@@ -826,9 +826,8 @@ function updatePeriodos(){
     tb += `<tr class="total-row"><td style="${stickyTdBold}">TOTAL</td>`;
     meses.forEach(m => {
       const tot = allPers.reduce((a,x) => a + (x.byMes[m]||0), 0);
-      const liqMes = DATA.by_mes_total[m]?.liq || 1;
       tb += `<td class="gold" style="${sepBorder};white-space:nowrap">${fmtN(tot)}</td>`;
-      tb += `<td class="muted" style="white-space:nowrap">${(tot/liqMes*100).toFixed(2)}%</td>`;
+      tb += `<td class="muted" style="white-space:nowrap">100.00%</td>`;
     });
     tb += '</tr></tbody>';
 
