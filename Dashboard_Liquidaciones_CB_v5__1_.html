@@ -604,7 +604,7 @@ function buildWhyPanel(sedeFilter, mesFilter){
   sedesShow.forEach(s => {
     const b = getBruto(s) || 1;
     allGroups.forEach(g => {
-      const p = Math.abs(sedeDesc[g] || 0) / b * 100;
+      const p = Math.abs(getAccum(s, g)) / b * 100;
       if (p > maxPct) maxPct = p;
     });
   });
