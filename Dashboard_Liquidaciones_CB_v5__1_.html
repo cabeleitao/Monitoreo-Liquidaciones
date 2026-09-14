@@ -476,8 +476,11 @@ function updateSedes(){
     // Una sede: evolución mes a mes con línea % descuento
     const brutosS=MESES.map(m=>getV(m,sede,'bruto'));
     const liqS   =MESES.map(m=>getV(m,sede,'liq'));
-    const pctS   =MESES.map(m=>getV(m,sede,'bruto')?
-      Math.abs(getV(m,sede,'desc'))/getV(m,sede,'bruto')*100:0);
+    const pctS=MESES.map(m=>{
+      const b=getV(m,sede,'bruto'); if(!b) return 0;
+      const emsaM=emsaExcluded?(DATA.desc_by_sede?.[m]?.[sede]?.['Facturas EMSA']||0):0;
+      return Math.abs(getV(m,sede,'desc')-emsaM)/b*100;
+    });
     CH['chartSedesEvol']=new Chart(document.getElementById('chartSedesEvol'),{
       data:{labels:MESES,datasets:[
         {type:'bar',label:'Bruto',data:brutosS,yAxisID:'y',
@@ -538,7 +541,8 @@ function updateSedes(){
   // ── Tabla compacta ───────────────────────────────────────
   const rows=sedes.map(s=>{
     const b=meses.reduce((a,m)=>a+getV(m,s,'bruto'),0);
-    const d=meses.reduce((a,m)=>a+getV(m,s,'desc'),0);
+    const emsaS=emsaExcluded?meses.reduce((a,m)=>a+(DATA.desc_by_sede?.[m]?.[s]?.['Facturas EMSA']||0),0):0;
+    const d=meses.reduce((a,m)=>a+getV(m,s,'desc'),0)-emsaS;
     const l=b+d;
     const pp=b?d/b*100:0;
     const ppStr=`${pp.toFixed(1)}%`;
@@ -549,7 +553,8 @@ function updateSedes(){
       <td class="pos">${fmtN(l)}</td></tr>`;
   });
   const tB=sedes.reduce((a,s)=>a+meses.reduce((x,m)=>x+getV(m,s,'bruto'),0),0);
-  const tD=sedes.reduce((a,s)=>a+meses.reduce((x,m)=>x+getV(m,s,'desc'),0),0);
+  const tEmsaAll=emsaExcluded?sedes.reduce((a,s)=>a+meses.reduce((x,m)=>x+(DATA.desc_by_sede?.[m]?.[s]?.['Facturas EMSA']||0),0),0):0;
+  const tD=sedes.reduce((a,s)=>a+meses.reduce((x,m)=>x+getV(m,s,'desc'),0),0)-tEmsaAll;
   document.getElementById('sedesTable').innerHTML=`
     <thead><tr>
       <th style="text-align:left">Sede</th>
@@ -599,7 +604,9 @@ function buildWhyPanel(sedeFilter, mesFilter){
   sedesShow.forEach(s => {
     const b = getBruto(s) || 1;
     allGroups.forEach(g => {
-      const p = Math.abs(getAccum(s, g) / b * 100);
+      const rawAmt = sedeDescRaw[g] || 0;
+      const dispAmt = (g==='Facturas EMSA'&&emsaExcluded) ? rawAmt : (sedeDesc[g]||0);
+      const p = Math.abs(dispAmt / b * 100);
       if (p > maxPct) maxPct = p;
     });
   });
@@ -619,7 +626,12 @@ function buildWhyPanel(sedeFilter, mesFilter){
     const totalPctCats = Object.values(sedeDesc).reduce((a, v) => a + v, 0) / b * 100;
 
     // Groups present in this sede (>0.01% of bruto)
-    const present = allGroups.filter(g => Math.abs(sedeDesc[g] || 0) > b * 0.0001);
+    // sedeDescRaw: non-excluded amounts for threshold/display purposes
+    const sedeDescRaw = {};
+    allGroups.forEach(g => {
+      sedeDescRaw[g] = meses.reduce((a, m) => a + (DATA.desc_by_sede?.[m]?.[s]?.[g] || 0), 0);
+    });
+    const present = allGroups.filter(g => Math.abs(sedeDescRaw[g] || 0) > b * 0.0001);
     // Groups absent here but present in other sedes
     const absent  = allGroups.filter(g => !present.includes(g) &&
       SEDES.some(s2 => {
@@ -804,9 +816,9 @@ function updatePeriodos(){
       tb += `<tr><td style="${stickyTd};font-weight:500">${x.per}</td>`;
       meses.forEach(m => {
         const v = x.byMes[m] || 0;
-        const liqMes = DATA.by_mes_total[m]?.liq || 1;
+        const colTotal = allPers.reduce((a, x) => a + (x.byMes[m] || 0), 0) || 1;
         tb += `<td class="${v<0?'neg':''}" style="${sepBorder};white-space:nowrap">${v ? fmtN(v) : '—'}</td>`;
-        tb += `<td class="muted" style="white-space:nowrap">${v ? (v/liqMes*100).toFixed(2)+'%' : '—'}</td>`;
+        tb += `<td class="muted" style="white-space:nowrap">${v ? (v/colTotal*100).toFixed(2)+'%' : '—'}</td>`;
       });
       tb += '</tr>';
     });
