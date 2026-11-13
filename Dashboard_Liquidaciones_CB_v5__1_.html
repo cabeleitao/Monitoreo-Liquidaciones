@@ -630,6 +630,13 @@ function renderDescTrend(sede, mes){
   });
   groups.forEach(g=>{ series[g]=MESES.map((m,i)=>pctOf(catAmt(g,i),i)); });
   const keys=['__total',...groups];
+  const amts={};
+  amts['__total']=MESES.map((m,i)=>{
+    const d=sedes.reduce((a,s)=>a+(DATA.by_mes_sede[m]?.[s]?.desc||0),0);
+    const e=emsaExcluded?catAmt('Facturas EMSA',i):0;
+    return d-e;
+  });
+  groups.forEach(g=>{ amts[g]=MESES.map((m,i)=>catAmt(g,i)); });
   const avg=k=>{const v=series[k].filter(x=>x!==null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
   const label=k=>k==='__total'?('Total descuentos'+(emsaExcluded?' (sin EMSA)':'')):k.replace('(neto devol.)','(neto)');
 
@@ -651,7 +658,7 @@ function renderDescTrend(sede, mes){
   CH['chartDescTrend']=new Chart(document.getElementById('chartDescTrend'),{
     type:'line',
     data:{labels:MESES,datasets:shown.map(k=>({
-      label:label(k), data:series[k], _avg:avg(k),
+      label:label(k), data:series[k], _avg:avg(k), _amt:amts[k],
       borderColor:trendColor(k), backgroundColor:trendColor(k),
       borderWidth:k==='__total'?3:2, pointRadius:3, pointHoverRadius:5, tension:.2, spanGaps:true,
       datalabels:{display:false}
@@ -659,12 +666,19 @@ function renderDescTrend(sede, mes){
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:false},datalabels:{display:false},
-        tooltip:{callbacks:{label:i=>{
-          const v=i.raw, a=i.dataset._avg;
-          if(v===null||v===undefined) return ` ${i.dataset.label}: —`;
-          const d=v-a;
-          return ` ${i.dataset.label}: ${v.toFixed(2)}%  (${d>=0?'+':''}${d.toFixed(2)} pp vs prom.)`;
-        }}}},
+        tooltip:{callbacks:{
+          label:i=>{
+            const v=i.raw, a=i.dataset._avg, amt=i.dataset._amt?.[i.dataIndex];
+            if(v===null||v===undefined) return ` ${i.dataset.label}: —`;
+            const d=v-a;
+            return [` ${i.dataset.label}: ${v.toFixed(2)}%  (${d>=0?'+':''}${d.toFixed(2)} pp vs prom.)`,
+                    `    Importe: ${fmtN(amt||0)}`];
+          },
+          footer:items=>{
+            const i=items[0]?.dataIndex;
+            return (i!==undefined && bruto[i]) ? 'Bruto del mes: '+fmtN(bruto[i]) : '';
+          }
+        }}},
       scales:{x:{ticks:TICK_ST,grid:{display:false}},
         y:{beginAtZero:true,ticks:{color:TICK,font:{size:11},callback:v=>v.toFixed(1)+'%'},grid:{color:GRID}}}}
   });
